@@ -1,3 +1,8 @@
 # Soccer2027_Lorentz
 
-hello
+<!-- 
+Shibumaku Soccer project
+
+Yuki S
+Shota S
+Yuto S -->
