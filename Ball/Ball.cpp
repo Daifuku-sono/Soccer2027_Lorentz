@@ -24,10 +24,10 @@ static constexpr int SENSOR_QUEUE_SIZE = 16;
 static constexpr int DIST_QUEUE_SIZE = 16;
 static constexpr int PRED_QUEUE_SIZE = 6;
 
-// 【修正点】標準的なPico (RP2040) で利用可能な GPIO 0〜15 に仮変更しています。
-// RP2350等を使用する場合は元の配線に合わせて変更してください。
+// Pico 1 では 30 以上は使えません。
+// Pico 2 / RP2350 系なら、ここはあなたの配線に合わせてください。
 static constexpr std::array<uint, SENSOR_COUNT> PIN = {
-    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+    24, 25, 26, 27, 28, 29, 30, 31, 32, 39, 38, 37, 36, 35, 34, 33
 };
 
 // ============================
@@ -55,27 +55,21 @@ static float angleDiffDeg(float a, float b) {
 // ============================
 // 低レベルのパルス幅(us)を測る
 static uint32_t pulseInLow(uint gpio, uint32_t timeout_us) {
-    // タイムアウト計算には 32bit カウンタで十分かつ高速
-    uint32_t start = time_us_32();
+    uint64_t start = time_us_64();
 
-    // 1. すでにLOWの場合は、正確なパルスの始まりを捉えるために一度HIGHになるのを待つ
-    while (gpio_get(gpio) == 0) {
-        if ((time_us_32() - start) >= timeout_us) return 0;
-    }
-
-    // 2. LOW になるまで待つ (パルスの開始)
+    // まず LOW になるまで待つ
     while (gpio_get(gpio) != 0) {
-        if ((time_us_32() - start) >= timeout_us) return 0;
+        if ((time_us_64() - start) >= timeout_us) return 0;
     }
 
-    uint32_t pulse_start = time_us_32();
+    uint64_t pulse_start = time_us_64();
 
-    // 3. LOW のままでいる時間を測る (HIGHになったら終了)
+    // LOW のままでいる時間を測る
     while (gpio_get(gpio) == 0) {
-        if ((time_us_32() - start) >= timeout_us) return 0;
+        if ((time_us_64() - start) >= timeout_us) return 0;
     }
 
-    return time_us_32() - pulse_start;
+    return static_cast<uint32_t>(time_us_64() - pulse_start);
 }
 
 // ============================
@@ -238,15 +232,13 @@ private:
 static void setupPins() {
     for (auto gpio : PIN) {
         gpio_init(gpio);
-        gpio_set_dir(gpio, GPIO_IN); // 可読性向上のため `false` -> `GPIO_IN`
-        gpio_pull_up(gpio);          // センサ仕様に合わせて変更
+        gpio_set_dir(gpio, false);   // input
+        gpio_pull_up(gpio);          // 必要なら pull-up。センサ仕様に合わせて変更
     }
 }
 
 static void loopOnce(SensorProcessor& proc) {
     for (int i = 0; i < SENSOR_COUNT; i++) {
-        // 【注意】タイムアウト2000us(=2ms)はセンサによっては短すぎる可能性があります。
-        // 値が常に0になる場合は、ここの数値を 20000 などに増やしてください。
         uint32_t val = pulseInLow(PIN[i], 2000);
         proc.pushSensorValue(i, static_cast<uint16_t>(val));
     }
@@ -270,6 +262,7 @@ static void loopOnce(SensorProcessor& proc) {
 
 int main() {
     stdio_init_all();
+
     setupPins();
 
     SensorProcessor proc;
