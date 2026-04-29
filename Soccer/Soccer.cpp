@@ -14,6 +14,7 @@ static constexpr float PI_F = 3.14159265358979323846f;
 // ============================
 static constexpr float TH_NEAR = 4200.0f;
 static constexpr float TH_MID  = 3000.0f;
+
 static constexpr float WEIGHT_RECENT = 10.0f;
 static constexpr float WEIGHT_MIDDLE = 2.0f;
 static constexpr float WEIGHT_OLD    = 0.4f;
@@ -23,9 +24,8 @@ static constexpr int SENSOR_QUEUE_SIZE = 16;
 static constexpr int DIST_QUEUE_SIZE = 16;
 static constexpr int PRED_QUEUE_SIZE = 6;
 
-// Pico 1 では 30 以上は使えません。
-// Pico 2 / RP2350 系なら、ここはあなたの配線に合わせてください。
-static constexpr std::array<uint, SENSOR_COUNT> PIN = {
+// Pico 1 を使うなら、ここは必ず有効なGPIO番号に直してください。
+static constexpr std::array<unsigned int, SENSOR_COUNT> PIN = {
     24, 25, 26, 27, 28, 29, 30, 31, 32, 39, 38, 37, 36, 35, 34, 33
 };
 
@@ -52,18 +52,15 @@ static float angleDiffDeg(float a, float b) {
 // ============================
 // pulseIn(LOW) 代替
 // ============================
-// 低レベルのパルス幅(us)を測る
-static uint32_t pulseInLow(uint gpio, uint32_t timeout_us) {
+static uint32_t pulseInLow(unsigned int gpio, uint32_t timeout_us) {
     uint64_t start = time_us_64();
 
-    // まず LOW になるまで待つ
     while (gpio_get(gpio) != 0) {
         if ((time_us_64() - start) >= timeout_us) return 0;
     }
 
     uint64_t pulse_start = time_us_64();
 
-    // LOW のままでいる時間を測る
     while (gpio_get(gpio) == 0) {
         if ((time_us_64() - start) >= timeout_us) return 0;
     }
@@ -231,8 +228,8 @@ private:
 static void setupPins() {
     for (auto gpio : PIN) {
         gpio_init(gpio);
-        gpio_set_dir(gpio, false);   // input
-        gpio_pull_up(gpio);          // 必要なら pull-up。センサ仕様に合わせて変更
+        gpio_set_dir(gpio, GPIO_IN);
+        gpio_pull_up(gpio);
     }
 }
 
@@ -255,13 +252,13 @@ static void loopOnce(SensorProcessor& proc) {
     float predDist = 0.0f;
     proc.getPredictedValue(predAngle, predDist);
 
-    printf("Dist: %.1f | Level: %d | Ang: %.1f | PredAng: %.1f | PredDist: %.1f\n",
-           weightedDist, level, angle, predAngle, predDist);
+    std::printf("Dist: %.1f | Level: %d | Ang: %.1f | PredAng: %.1f | PredDist: %.1f\n",
+                weightedDist, level, angle, predAngle, predDist);
+    std::fflush(stdout);
 }
 
 int main() {
     stdio_init_all();
-
     setupPins();
 
     SensorProcessor proc;
