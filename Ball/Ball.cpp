@@ -1,16 +1,57 @@
-#include <Arduino.h>
-#include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+#include <iostream>
+#include <cmath>
+#include <cstdint>
+#include <string>
+#include <thread>
+#include <chrono>
+
+
+#define INPUT 0
+#define LOW 0
+#ifndef PI
+#define PI 3.14159265358979323846f
+#endif
+
+// F() マクロの無効化（標準文字列にする）
+#define F(x) x
+
+// Serialのモック（標準出力へのリダイレクト）
+class SerialMock {
+public:
+    void begin(int baud) {}
+    
+    template<typename T>
+    void print(T val) { std::cout << val; }
+    
+    template<typename T>
+    void println(T val) { std::cout << val << std::endl; }
+    
+    void println() { std::cout << std::endl; }
+} Serial;
+
+// math関数のモック
+float radians(float deg) {
+    return deg * PI / 180.0f;
+}
+
+// pinModeモック
+void pinMode(int pin, int mode) {
+    // C++環境では何もしない
+}
+
+// pulseInモック（頑張って再現）
+// ※ 実際のハードウェア信号は読めないため、時間やピン番号に基づくダミーのセンサー値を返します。
+// ※ ここを書き換えることで任意のテストケースを作成できます。
+uint16_t pulseIn(int pin, int value, int timeout) {
+    static int counter = 0;
+    counter++;
+    // 例: ピン番号とカウンターを使った変動するダミー値 (1000〜3000程度の値)
+    return 1500 + (pin * 10) + (counter % 500); 
+}
 
 // ============================
 // 設定・定数
 // ============================
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
-#define OLED_RESET -1
-#define OLED_ADDR 0x3C
-
 // しきい値設定 (rawDistanceに対する閾値：値が大きいほど近い)
 #define TH_NEAR 4200 
 #define TH_MID  3000
@@ -31,11 +72,9 @@ const uint8_t pin[SENSOR_COUNT] = {
 // ============================
 // グローバル変数
 // ============================
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-
 // 各センサーの履歴管理用
 uint16_t history[SENSOR_COUNT][SENSOR_QUEUE_SIZE] = {0};
-uint16_t head[SENSOR_COUNT] = {0};
+uint16_t head_idx[SENSOR_COUNT] = {0}; // C++の標準関数名との衝突を避けるため head -> head_idx
 uint16_t count[SENSOR_COUNT] = {0};
 uint32_t sensorSum[SENSOR_COUNT] = {0};
 
@@ -106,13 +145,14 @@ void getPredictedValue(float &predAngleDeg, float &predDist) {
   predDist     = predDist + avgDD * PREDICT_STEP;
   if (predDist < 0.0f) predDist = 0.0f;
 }
+
 // ============================
 // センサーデータ処理
 // ============================
 
 // センサーごとの値をキューに入れ、合計値を更新
 void pushSensorValue(int sensorIndex, uint16_t value) {
-  uint16_t oldValue = history[sensorIndex][head[sensorIndex]];
+  uint16_t oldValue = history[sensorIndex][head_idx[sensorIndex]];
 
   if (count[sensorIndex] == SENSOR_QUEUE_SIZE) {
     sensorSum[sensorIndex] -= oldValue;
@@ -120,9 +160,9 @@ void pushSensorValue(int sensorIndex, uint16_t value) {
     count[sensorIndex]++;
   }
 
-  history[sensorIndex][head[sensorIndex]] = value;
+  history[sensorIndex][head_idx[sensorIndex]] = value;
   sensorSum[sensorIndex] += value;
-  head[sensorIndex] = (head[sensorIndex] + 1) % SENSOR_QUEUE_SIZE;
+  head_idx[sensorIndex] = (head_idx[sensorIndex] + 1) % SENSOR_QUEUE_SIZE;
 }
 
 // 全センサーのうち、合計値が高い上位3つの平均を取得
@@ -143,7 +183,9 @@ uint32_t getTop3AverageOfSums() {
   }
 
   // 上位3つの平均からオフセットを引く (※3で割る)
-  return (sumTop3 / 3) - 750;
+  // C++では負の数になる可能性がある場合のアンダーフローに注意
+  uint32_t avg3 = sumTop3 / 3;
+  return (avg3 > 750) ? (avg3 - 750) : 0; 
 }
 
 // 算出された代表距離を履歴に追加
@@ -193,6 +235,7 @@ float getWeightedDistance() {
     (oldAvg    * WEIGHT_OLD)
   ) / (WEIGHT_RECENT + WEIGHT_MIDDLE + WEIGHT_OLD);
 }
+
 // 距離に基づいたレベル判定
 int getDistanceLevel(float d) {
   if (d > TH_NEAR) return 2; // 近い
@@ -205,100 +248,28 @@ float getAngleDegrees() {
   float sumX = 0, sumY = 0, total = 0;
 
   for (int i = 0; i < SENSOR_COUNT; i++) {
-    float w = history[i][(head[i] - 1 + SENSOR_QUEUE_SIZE) % SENSOR_QUEUE_SIZE];
+    float w = history[i][(head_idx[i] - 1 + SENSOR_QUEUE_SIZE) % SENSOR_QUEUE_SIZE];
     float angleRad = radians(i * 360.0f / SENSOR_COUNT);
-    sumX += cos(angleRad) * w;
-    sumY -= sin(angleRad) * w;
+    sumX += std::cos(angleRad) * w;
+    sumY -= std::sin(angleRad) * w; // Y軸は反転
     total += w;
   }
 
   if (total == 0) return 0.0f;
-  float ang = atan2(sumY, sumX) * 180.0f / PI;
+  float ang = std::atan2(sumY, sumX) * 180.0f / PI;
   if (ang < 0) ang += 360.0f;
   return ang;
 }
-// ディスプレイ
-void drawDirection(float angleDeg, float dist, float predAngleDeg, float predDist) {
-  const int cx = 64;
-  const int cy = 32;
-  const int r  = 22;
 
-  display.clearDisplay();
-  display.setTextColor(SSD1306_WHITE);
-
-  // 円
-  display.drawCircle(cx, cy, r, SSD1306_WHITE);
-
-  // 現在位置の矢印
-  float rad = radians(angleDeg + 90.0f);
-  int x = cx + (int)(cos(rad) * r);
-  int y = cy + (int)(sin(rad) * r);
-
-  display.drawLine(cx, cy, x, y, SSD1306_WHITE);
-
-  float headLen = 6.0f;
-  float leftRad  = rad + radians(150);
-  float rightRad = rad - radians(150);
-
-  int x1 = x + (int)(cos(leftRad) * headLen);
-  int y1 = y + (int)(sin(leftRad) * headLen);
-  int x2 = x + (int)(cos(rightRad) * headLen);
-  int y2 = y + (int)(sin(rightRad) * headLen);
-
-  display.drawLine(x, y, x1, y1, SSD1306_WHITE);
-  display.drawLine(x, y, x2, y2, SSD1306_WHITE);
-
-  // 予測位置の矢印（点線）
-  float prad = radians(predAngleDeg + 90.0f);
-  int pr = r - 4;
-
-  for (float t = 0.0f; t < 1.0f; t += 0.20f) {
-    float t2 = t + 0.10f;
-    if (t2 > 1.0f) t2 = 1.0f;
-
-    int sx = cx + (int)(cos(prad) * pr * t);
-    int sy = cy + (int)(sin(prad) * pr * t);
-    int ex = cx + (int)(cos(prad) * pr * t2);
-    int ey = cy + (int)(sin(prad) * pr * t2);
-
-    display.drawLine(sx, sy, ex, ey, SSD1306_WHITE);
-  }
-
-  // テキスト表示
-  display.setTextSize(1);
-  display.setCursor(0, 0);
-  display.print("ANG:");
-  display.print(angleDeg, 1);
-
-  display.setCursor(0, 10);
-  display.print("PRED:");
-  display.print(predAngleDeg, 1);
-
-  display.setCursor(0, 54);
-  display.print("DIST:");
-  display.print(dist, 0);
-
-  display.display();
-}
 // ============================
 // メイン処理
 // ============================
-
 void setup() {
   Serial.begin(115200);
-  Wire.begin();
-  Wire.setClock(800000);
 
   for (int i = 0; i < SENSOR_COUNT; i++) {
     pinMode(pin[i], INPUT);
   }
-
-  if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) {
-    Serial.println(F("SSD1306 init failed"));
-    while (1);
-  }
-  display.clearDisplay();
-  display.display();
 }
 
 void loop() {
@@ -322,17 +293,30 @@ void loop() {
   float predAngle, predDist;
   getPredictedValue(predAngle, predDist);
 
-  // // 4. シリアル出力 (デバッグ用)
-   Serial.print(F("Dist: ")); Serial.print(weightedDist);
+  // 4. シリアル出力 (デバッグ用)
+  Serial.print(F("Dist: ")); Serial.print(weightedDist);
   // Serial.print(F(" | Level: "));
   // if (level == 2)      Serial.print(F("NEAR"));
   // else if (level == 1) Serial.print(F("MID"));
   // else                 Serial.print(F("FAR"));
-  Serial.print(F(" | Ang: ")); Serial.println(angle, 1);
-  Serial.print(F(" | PredAng: "));
-  Serial.print(predAngle);
-  Serial.print(F(" | PredDist: "));
-  Serial.println(predDist);
+  Serial.print(F(" | Ang: ")); Serial.print(angle);
+  Serial.print(F(" | PredAng: ")); Serial.print(predAngle);
+  Serial.print(F(" | PredDist: ")); Serial.println(predDist);
+}
 
-drawDirection(angle, weightedDist, predAngle, predDist);
+// ============================
+// C++ エントリポイント
+// ============================
+int main() {
+  setup();
+  
+  // デバッグ用に100回ループさせる（実際のArduinoでは無限ループですが、PC環境テスト用に制限）
+  for (int i = 0; i < 100; i++) {
+      loop();
+      
+      // ループが早すぎる場合は少しスリープを入れる（必要に応じてコメントアウト解除）
+      // std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  }
+  
+  return 0;
 }
