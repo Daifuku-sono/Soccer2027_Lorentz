@@ -1,21 +1,65 @@
+//
+// !!! WARNING !!! AUTO-GENERATED FILE!
+// PLEASE DO NOT MODIFY IT AND USE "platformio.ini":
+// https://docs.platformio.org/page/projectconf/section_env_build.html#build-flags
+//
 {
     "configurations": [
         {
-            "name": "Win32",
+            "name": "PlatformIO",
             "includePath": [
-                "${workspaceFolder}/**",
-                "C:/Users/Sonog/.platformio/packages/framework-arduinoteensy/cores/teensy4"
+                "C:/Users/Sonog/document/Soccer2027_Lorentz/include",
+                "C:/Users/Sonog/document/Soccer2027_Lorentz/src",
+                "C:/Users/Sonog/document/Soccer2027_Lorentz/.pio/libdeps/seeeduino/Adafruit ST7735 and ST7789 Library",
+                "C:/Users/Sonog/document/Soccer2027_Lorentz/.pio/libdeps/seeeduino/Adafruit SSD1306",
+                "C:/Users/Sonog/document/Soccer2027_Lorentz/.pio/libdeps/seeeduino/Adafruit GFX Library",
+                "C:/Users/Sonog/document/Soccer2027_Lorentz/.pio/libdeps/seeeduino/Adafruit BusIO",
+                "C:/Users/Sonog/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
+                "C:/Users/Sonog/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
+                "C:/Users/Sonog/.platformio/packages/framework-arduino-avr/cores/arduino",
+                "C:/Users/Sonog/.platformio/packages/framework-arduino-avr/variants/standard",
+                "C:/Users/Sonog/document/Soccer2027_Lorentz/.pio/libdeps/seeeduino/Adafruit seesaw Library",
+                "C:/Users/Sonog/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
+                "C:/Users/Sonog/.platformio/packages/framework-arduino-avr/libraries/HID/src",
+                "C:/Users/Sonog/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
+                ""
             ],
+            "browse": {
+                "limitSymbolsToIncludedHeaders": true,
+                "path": [
+                    "C:/Users/Sonog/document/Soccer2027_Lorentz/include",
+                    "C:/Users/Sonog/document/Soccer2027_Lorentz/src",
+                    "C:/Users/Sonog/document/Soccer2027_Lorentz/.pio/libdeps/seeeduino/Adafruit ST7735 and ST7789 Library",
+                    "C:/Users/Sonog/document/Soccer2027_Lorentz/.pio/libdeps/seeeduino/Adafruit SSD1306",
+                    "C:/Users/Sonog/document/Soccer2027_Lorentz/.pio/libdeps/seeeduino/Adafruit GFX Library",
+                    "C:/Users/Sonog/document/Soccer2027_Lorentz/.pio/libdeps/seeeduino/Adafruit BusIO",
+                    "C:/Users/Sonog/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
+                    "C:/Users/Sonog/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
+                    "C:/Users/Sonog/.platformio/packages/framework-arduino-avr/cores/arduino",
+                    "C:/Users/Sonog/.platformio/packages/framework-arduino-avr/variants/standard",
+                    "C:/Users/Sonog/document/Soccer2027_Lorentz/.pio/libdeps/seeeduino/Adafruit seesaw Library",
+                    "C:/Users/Sonog/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
+                    "C:/Users/Sonog/.platformio/packages/framework-arduino-avr/libraries/HID/src",
+                    "C:/Users/Sonog/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
+                    ""
+                ]
+            },
             "defines": [
-                "_DEBUG",
-                "UNICODE",
-                "_UNICODE"
+                "PLATFORMIO=60119",
+                "ARDUINO_AVR_SEEEDUINO",
+                "F_CPU=16000000L",
+                "ARDUINO_ARCH_AVR",
+                "ARDUINO=10808",
+                "__AVR_ATmega328P__",
+                ""
             ],
-            "compilerPath": "C:/Users/Sonog/.platformio/packages/toolchain-gccarmnoneeabi-teensy/bin/arm-none-eabi-gcc.exe",
-            "cStandard": "c17",
-            "cppStandard": "gnu++17",
-            "intelliSenseMode": "windows-gcc-arm",
-            "configurationProvider": " ms-vscode.cmake-tools"
+            "cStandard": "gnu11",
+            "cppStandard": "gnu++11",
+            "compilerPath": "C:/Users/Sonog/.platformio/packages/toolchain-atmelavr/bin/avr-gcc.exe",
+            "compilerArgs": [
+                "-mmcu=atmega328p",
+                ""
+            ]
         }
     ],
     "version": 4
