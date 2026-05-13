@@ -1,4 +1,4 @@
-#include <Arduino.h>
+#include <Arduino.h>    
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -100,10 +100,14 @@ void getPredictedValue(float &predAngleDeg, float &predDist) {
   float avgDD = sumDD / n;
 
   // ここで予測の先読み量を調整
-  const float PREDICT_STEP = 2.0f;
+  const float ANGLE_PREDICT_STEP = 3.0f;
+  const float DIST_PREDICT_STEP  = 5.0f;
 
-  predAngleDeg = normalizeAngle(predAngleDeg + avgDA * PREDICT_STEP);
-  predDist     = predDist + avgDD * PREDICT_STEP;
+  predAngleDeg =
+  normalizeAngle(predAngleDeg + avgDA * ANGLE_PREDICT_STEP);
+
+  predDist =
+  predDist + avgDD * DIST_PREDICT_STEP;
   if (predDist < 0.0f) predDist = 0.0f;
 }
 // ============================
@@ -126,24 +130,29 @@ void pushSensorValue(int sensorIndex, uint16_t value) {
 }
 
 // 全センサーのうち、合計値が高い上位3つの平均を取得
-uint32_t getTop3AverageOfSums() {
+uint32_t getTop6AverageOfSums() {
   uint32_t temp[SENSOR_COUNT];
   for (int i = 0; i < SENSOR_COUNT; i++) {
     temp[i] = sensorSum[i];
   }
 
-  uint32_t sumTop3 = 0;
-  for (int k = 0; k < 3; k++) {
+  uint32_t sumTop6 = 0;
+  for (int k = 0; k < 6; k++) {
     int maxIndex = 0;
     for (int i = 1; i < SENSOR_COUNT; i++) {
       if (temp[i] > temp[maxIndex]) maxIndex = i;
     }
-    sumTop3 += temp[maxIndex];
+    sumTop6 += temp[maxIndex];
     temp[maxIndex] = 0; // 次点の計算のために0にセット
   }
 
   // 上位3つの平均からオフセットを引く (※3で割る)
-  return (sumTop3 / 3) - 750;
+  int32_t value = (sumTop6 / 6) - 750;
+
+  // 0未満なら0にする
+  if (value < 0) value = 0;
+
+  return value;
 }
 
 // 算出された代表距離を履歴に追加
@@ -278,6 +287,9 @@ void drawDirection(float angleDeg, float dist, float predAngleDeg, float predDis
   display.print("DIST:");
   display.print(dist, 0);
 
+  display.setCursor(50, 56);
+  display.print("PDIST:");
+  display.print(predDist, 0);
   display.display();
 }
 // ============================
@@ -306,10 +318,16 @@ void loop() {
   for (int i = 0; i < SENSOR_COUNT; i++) {
     uint16_t val = pulseIn(pin[i], LOW, 2000); 
     pushSensorValue(i, val);
-  }
+      // センサー値表示
+  // Serial.print(val);
 
+  // if (i < SENSOR_COUNT - 1) {
+    // Serial.print(", ");
+  // }
+  }
+ Serial.println();
   // 2. 代表距離の計算と平滑化
-  uint32_t rawDistance = getTop3AverageOfSums();
+  uint32_t rawDistance = getTop6AverageOfSums();
   pushDistance(rawDistance);
   float weightedDist = getWeightedDistance();
   int level = getDistanceLevel(weightedDist);
@@ -323,14 +341,14 @@ void loop() {
   getPredictedValue(predAngle, predDist);
 
   // // 4. シリアル出力 (デバッグ用)
-   Serial.print(F("Dist: ")); Serial.print(weightedDist);
+  Serial.print(F("Dist: ")); Serial.print(weightedDist);
   // Serial.print(F(" | Level: "));
   // if (level == 2)      Serial.print(F("NEAR"));
   // else if (level == 1) Serial.print(F("MID"));
   // else                 Serial.print(F("FAR"));
-  Serial.print(F(" | Ang: ")); Serial.println(angle, 1);
-  Serial.print(F(" | PredAng: "));
-  Serial.print(predAngle);
+  //Serial.print(F(" | Ang: ")); Serial.println(angle, 1);
+  //Serial.print(F(" | PredAng: "));
+  // Serial.print(predAngle);
   Serial.print(F(" | PredDist: "));
   Serial.println(predDist);
 
