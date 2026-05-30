@@ -494,6 +494,7 @@ int lastbuttonR = 0;
 int lastbuttonU = 0;
 int lastbuttonD = 0;
 bool check = false;
+int cnt = 0;
 
 void setup() {
   Serial.begin(115200);
@@ -571,7 +572,13 @@ void loop() {
         tft.print("Line");
       }
       if (count_x == 1) {
-        tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_MAGENTA);
+        tft.drawCircle(120,120,80,ST77XX_WHITE);
+        while( buttonL ==LOW && buttonR ==LOW){
+          buttonL = digitalRead(2);
+          buttonR = digitalRead(9);
+          cnt += cnt * PI / 60;
+          tft.drawLine(120,120,120 + 80 * cos(cnt),120+80*sin(cnt),ST77XX_WHITE);      
+        }
       }
       if (count_x == 2) {
         tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_WHITE);
