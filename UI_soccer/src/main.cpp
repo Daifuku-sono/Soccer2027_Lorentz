@@ -494,7 +494,7 @@ int lastbuttonR = 0;
 int lastbuttonU = 0;
 int lastbuttonD = 0;
 bool check = false;
-int cnt = 0;
+float cnt = 0;
 
 void setup() {
   Serial.begin(115200);
@@ -565,19 +565,22 @@ void loop() {
       if (count_x == 0) {
         tft.setTextSize(5);
         tft.setTextColor(ST77XX_WHITE);
-        tft.setCursor(10, 10);
-        tft.print(count_y);
-        tft.setTextSize(4);
-        tft.setCursor(10, 60);
-        tft.print("Line");
+        tft.setCursor(10,110);
+        tft.print("1 Line");
       }
       if (count_x == 1) {
         tft.drawCircle(120,120,80,ST77XX_WHITE);
         while( buttonL ==LOW && buttonR ==LOW){
+          tft.drawLine(120,120,120 + 75 * cos(cnt),120 + 75 * sin(cnt),ST77XX_WHITE);
           buttonL = digitalRead(2);
           buttonR = digitalRead(9);
-          cnt += cnt * PI / 60;
-          tft.drawLine(120,120,120 + 80 * cos(cnt),120+80*sin(cnt),ST77XX_WHITE);      
+          buttonU = digitalRead(1);
+          buttonD = digitalRead(0);
+          delay(10);
+          tft.drawLine(120,120,120 + 75 * cos(cnt),120 + 75 * sin(cnt),ST77XX_BLACK);   
+          if(buttonU == HIGH) cnt += 0.1;
+          if(buttonD == HIGH) cnt -= 0.1;
+          
         }
       }
       if (count_x == 2) {
@@ -590,11 +593,8 @@ void loop() {
       if (count_x == 0) {
         tft.setTextSize(5);
         tft.setTextColor(ST77XX_WHITE);
-        tft.setCursor(10, 10);
-        tft.print(count_y);
-        tft.setTextSize(4);
-        tft.setCursor(10, 60);
-        tft.print("Ball");
+        tft.setCursor(10,110);
+        tft.print("2 Ball");
       }
       if (count_x == 1) {
         tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_RED);
@@ -609,12 +609,9 @@ void loop() {
       if (count_x == 0) {
         tft.setTextSize(5);
         tft.setTextColor(ST77XX_WHITE);
-        tft.setCursor(10, 10);
-        tft.print(count_y);
-        tft.setTextSize(4);
-        tft.setCursor(10, 60);
-        tft.print("Gyro");      }
-      if (count_x == 1) {
+        tft.setCursor(10,110);
+        tft.print("3 Gyro");    
+      }if (count_x == 1) {
         tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_RED);
       }
       if (count_x == 2) {
@@ -627,13 +624,13 @@ void loop() {
       if (count_x == 0) {
         tft.setTextSize(5);
         tft.setTextColor(ST77XX_WHITE);
-        tft.setCursor(10, 10);
-        tft.print(count_y);
-         tft.setTextSize(4);
-        tft.setCursor(10, 60);
-        tft.print("Camera");      }
-      
-      if (count_x == 1) {
+        tft.setCursor(10,110);
+        tft.print("4 Cam");    
+        tft.setTextSize(2);
+        tft.setTextColor(ST77XX_WHITE);
+        tft.setCursor(90,10);
+        tft.print("3 Gyro");    
+      }if (count_x == 1) {
         tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_RED);
       }
       if (count_x == 2) {
