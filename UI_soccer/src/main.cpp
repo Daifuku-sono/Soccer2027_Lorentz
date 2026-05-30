@@ -514,8 +514,8 @@ void setup() {
 void loop() {
   buttonL = digitalRead(2);
   buttonR = digitalRead(9);
-  buttonU = digitalRead(0);
-  buttonD = digitalRead(1);
+  buttonU = digitalRead(1);
+  buttonD = digitalRead(0);
   if (buttonL == LOW && buttonR == LOW && buttonU == LOW && buttonD == LOW) {
     check = false;
   } else {
@@ -559,12 +559,16 @@ void loop() {
   lastbuttonU = buttonU;
   lastbuttonD = buttonD;
   if ((count_x != lastcount_x) || (count_y != lastcount_y)) {
+    tft.fillScreen(ST77XX_BLACK);
     if (count_y == 0) {
       if (count_x == 0) {
-        tft.fillScreen(ST77XX_BLACK);
+        tft.setTextSize(5);
         tft.setTextColor(ST77XX_WHITE);
         tft.setCursor(10, 10);
         tft.print(count_y);
+        tft.setTextSize(4);
+        tft.setCursor(10, 60);
+        tft.print("Line");
       }
       if (count_x == 1) {
         tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_MAGENTA);
@@ -577,12 +581,13 @@ void loop() {
       }
     } else if(count_y == 1){
       if (count_x == 0) {
-        tft.fillScreen(ST77XX_BLACK);
+        tft.setTextSize(5);
         tft.setTextColor(ST77XX_WHITE);
         tft.setCursor(10, 10);
         tft.print(count_y);
+        tft.setTextSize(4);
         tft.setCursor(10, 60);
-        tft.print("Line Sensor");
+        tft.print("Ball");
       }
       if (count_x == 1) {
         tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_RED);
@@ -595,11 +600,13 @@ void loop() {
       }
     }else if(count_y == 2){
       if (count_x == 0) {
-        tft.fillScreen(ST77XX_BLACK);
+        tft.setTextSize(5);
         tft.setTextColor(ST77XX_WHITE);
         tft.setCursor(10, 10);
         tft.print(count_y);
-      }
+        tft.setTextSize(4);
+        tft.setCursor(10, 60);
+        tft.print("Gyro");      }
       if (count_x == 1) {
         tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_RED);
       }
@@ -611,11 +618,14 @@ void loop() {
       }
     }else if(count_y == 3){
       if (count_x == 0) {
-        tft.fillScreen(ST77XX_BLACK);
+        tft.setTextSize(5);
         tft.setTextColor(ST77XX_WHITE);
         tft.setCursor(10, 10);
         tft.print(count_y);
-      }
+         tft.setTextSize(4);
+        tft.setCursor(10, 60);
+        tft.print("Camera");      }
+      
       if (count_x == 1) {
         tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_RED);
       }
