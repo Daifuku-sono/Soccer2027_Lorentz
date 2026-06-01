@@ -3,6 +3,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7789.h>
 #include <avr/pgmspace.h>
+#include <ArduinoBLE.h>
 
 // ----- 配線 -----
 // GND  -> GND
@@ -503,6 +504,21 @@ void drawtext(int textsize, int x, int y, const char* text){
   tft.print(text);
 }
 
+BLEService ledService("ae7daac9-caf9-e3af-976b-4d3a0d6f94e3");
+
+// 3バイト受信できるようにする
+BLECharacteristic switchChar("197f0bd9-de9c-6d0c-eaf4-09728681ee27",
+                             BLERead | BLEWrite, 3);
+
+                             unsigned long lastReceiveTime = 0;
+const unsigned long timeout = 500;
+
+int Ball_X = 0;
+int Ball_Y = 0;
+int Ball_cnt = 0;
+
+
+
 void setup() {
   Serial.begin(115200);
   delay(500);
@@ -514,10 +530,103 @@ void setup() {
   tft.setRotation(2);
   tft.fillScreen(ST77XX_BLACK);
   tft.setTextSize(5);
+  pinMode(LED_RED, OUTPUT);
+  pinMode(LED_GREEN, OUTPUT);
+  pinMode(LED_BLUE, OUTPUT);
   pinMode(0, INPUT);
   pinMode(1, INPUT);
   pinMode(2, INPUT);
   pinMode(9, INPUT);
+  digitalWrite(LED_RED, HIGH);
+  digitalWrite(LED_GREEN, HIGH);
+  digitalWrite(LED_BLUE, HIGH);
+
+  if (!BLE.begin()) {
+    while (1)
+      ;
+
+  }
+  BLE.setLocalName("LED3Control");
+  BLE.setAdvertisedService(ledService);
+  ledService.addCharacteristic(switchChar);
+  BLE.addService(ledService);
+  BLE.advertise();
+
+  //Serial.println("Peripheral Ready. Waiting...");
+  tft.fillRect(0, 0, 240, 25, ST77XX_GREEN);
+  tft.drawCircle(80, 140, 75, ST77XX_MAGENTA);
+}
+
+void BLEperipheral() {
+  BLEDevice central = BLE.central();
+
+  if (central) {
+    //Serial.println("Central connected!");
+    tft.fillRect(0, 0, 240, 25, ST77XX_GREEN);
+    while (central.connected()) {
+      if (switchChar.written()) {
+        uint8_t buf[3] = { 0 };
+
+        // 3バイトまとめて読む
+        int len = switchChar.readValue(buf, 3);
+        if (len == 3) {
+          uint8_t firstVal = buf[0];
+          uint8_t secondVal = buf[1];
+          uint8_t thirdVal = buf[2];
+
+          lastReceiveTime = millis();
+
+          //Serial.print("Received: ");
+          //Serial.print(firstVal);
+          //Serial.print(", ");
+          //Serial.print(secondVal);
+          //Serial.print(", ");
+          //Serial.println(thirdVal);
+
+          if (firstVal * secondVal + 1 == thirdVal) {
+            Ball_cnt += 1;
+            digitalWrite(LED_RED, (firstVal & 0x01) ? LOW : HIGH);
+            digitalWrite(LED_GREEN, (firstVal & 0x02) ? LOW : HIGH);
+            digitalWrite(LED_BLUE, (firstVal & 0x04) ? LOW : HIGH);
+            tft.drawLine(80, 140, Ball_X, Ball_Y, ST77XX_BLACK);
+            Ball_X = 80 + 73 * cos(Ball_cnt / (180.0 / PI));
+            Ball_Y = 140 + 73 * sin(Ball_cnt / (180.0 / PI));
+            tft.drawLine(80, 140, Ball_X, Ball_Y, ST77XX_CYAN);
+            tft.setCursor(160, 50);
+            tft.setTextSize(4);
+            tft.setTextColor(ST77XX_WHITE);
+            tft.print(Ball_cnt);
+            tft.setCursor(160, 50);
+            tft.setTextSize(4);
+            tft.setTextColor(ST77XX_BLACK);
+            tft.println(Ball_cnt);
+            tft.setCursor(160, 150);
+            tft.setTextSize(4);
+            tft.setTextColor(ST77XX_WHITE);
+            tft.print("10");
+            tft.setCursor(160, 150);
+            tft.setTextSize(4);
+            tft.setTextColor(ST77XX_BLACK);
+            tft.println("10");
+            if (Ball_cnt >= 360) Ball_cnt = 0;
+          } else {
+            tft.fillRect(0, 0, 240, 25, ST77XX_RED);
+            //Serial.println("Data mismatch! Ignored.");
+          }
+        }
+      }
+
+      if (millis() - lastReceiveTime > timeout) {
+        // 必要ならタイムアウト処理
+      }
+    }
+
+    tft.fillRect(0, 0, 240, 25, ST77XX_RED);
+    //Serial.println("Central disconnected.");
+    digitalWrite(LED_RED, HIGH);
+    digitalWrite(LED_GREEN, HIGH);
+    digitalWrite(LED_BLUE, HIGH);
+  }
 }
 void loop() {
   buttonL = digitalRead(2);
@@ -654,13 +763,13 @@ if (count_x == 1) {
         drawtext(4, 48, 53, "4 Cam");
         drawtext(4, 48, 173, "6 Cam2");
       }if (count_x == 1) {
-        tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_RED);
+        BLEperipheral();
       }
       if (count_x == 2) {
-        tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_BLUE);
+        BLEperipheral();
       }
       if (count_x == 3) {
-        tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_YELLOW);
+        BLEperipheral();
       }
     }else if(count_y == 5){
       if (count_x == 0) {
