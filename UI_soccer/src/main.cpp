@@ -5,6 +5,8 @@
 #include <avr/pgmspace.h>
 #include <ArduinoBLE.h>
 
+//検証
+
 // ----- 配線 -----
 // GND  -> GND
 // VCC  -> 3V3
