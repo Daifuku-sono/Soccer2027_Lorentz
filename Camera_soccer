@@ -1,0 +1,147 @@
+# main.py -- Yellow/Blue goals + single wall (coord + size) を送信
+import sensor, image, time, math, pyb
+from pyb import UART
+
+# ---------- 設定 ----------
+STREAM_INTERVAL_MS = 200   # 送信周期(ms). 0 = 毎フレーム送信
+PIXELS_THRESHOLD = 20      # find_blobs の閾値（調整）
+WALL_PIX_TH = 70
+
+# ヘッダ
+HDR_GOALWALL = 0x02
+HDR_WALL     = 0x14
+
+# UART (OpenMV -> MCU)
+uart = UART(3, 9600, timeout_char=1000)
+uart.init(9600, bits=8, parity=None, stop=1, timeout_char=1000)
+
+# 色閾値（L A B）
+YellowThresholds = [(64, 91, -6, 14, 26, 62)]
+BlueThresholds   = [(85, 0, 68, -128, -48, -17)]
+# 黒（壁）閾値（必要なら調整／追加）
+BlackThresholds  = [(91, 52, 61, 8, 20, -10)]
+
+# ROI
+GoalRoi = (30, 30, 260, 260)
+
+# ---------- 初期化 ----------
+sensor.reset()
+sensor.set_pixformat(sensor.RGB565)
+try:
+    sensor.set_framesize(sensor.B320X320)
+except Exception:
+    sensor.set_framesize(sensor.QVGA)
+sensor.skip_frames(time=300)
+# 自動補正（環境により変える）
+try:
+    sensor.set_auto_exposure(True)
+    sensor.set_auto_gain(True)
+    sensor.set_auto_whitebal(False)
+except Exception:
+    pass
+
+clock = time.clock()
+last_stream_ms = pyb.millis()
+
+# helpers
+def norm_coord(cx, cy, img):
+    if cx is None or cy is None:
+        return 255, 255
+    nx = int((cx * 255) // img.width())
+    ny = int((cy * 255) // img.height())
+    return nx, ny
+
+def make_packet(hdr, b1, b2, b3, b4, b5=0xFF, b6=0xFF):
+    return bytearray([hdr & 0xFF, b1 & 0xFF, b2 & 0xFF, b3 & 0xFF, b4 & 0xFF, b5 & 0xFF, b6 & 0xFF])
+
+def uart_write(pkt):
+    try:
+        uart.write(pkt)
+    except Exception:
+        pass
+
+def calc_angle_from_normalized(nx, ny):
+    if nx == 255 or ny == 255:
+        return None
+    dx = float(nx) - 128.0
+    dy = float(ny) - 128.0
+    rad = math.atan2(dy, dx) + math.pi / 2.0
+    deg = rad * 180.0 / math.pi
+    if deg < 0.0:
+        deg += 360.0
+    return deg % 360.0
+
+while True:
+    clock.tick()
+    img = sensor.snapshot()
+
+    # --- Yellow goal ---
+    y_best = 0; y_cx = None; y_cy = None
+    for blob in img.find_blobs(YellowThresholds, roi=GoalRoi,
+                               pixels_threshold=PIXELS_THRESHOLD,
+                               area_threshold=PIXELS_THRESHOLD,
+                               merge=True, margin=6):
+        if blob.pixels() > y_best:
+            y_best = blob.pixels(); y_cx = blob.cx(); y_cy = blob.cy()
+    if y_best > 0:
+        yx, yy = norm_coord(y_cx, y_cy, img)
+    else:
+        yx = yy = 255
+
+    # --- Blue goal ---
+    b_best = 0; b_cx = None; b_cy = None
+    for blob in img.find_blobs(BlueThresholds, roi=GoalRoi,
+                               pixels_threshold=PIXELS_THRESHOLD,
+                               area_threshold=PIXELS_THRESHOLD,
+                               merge=True, margin=6):
+        if blob.pixels() > b_best:
+            b_best = blob.pixels(); b_cx = blob.cx(); b_cy = blob.cy()
+    if b_best > 0:
+        bx, by = norm_coord(b_cx, b_cy, img)
+    else:
+        bx = by = 255
+
+    # --- Single wall: 画面全体で最大の黒 blob を選ぶ ---
+    best_size = 0; best_cx = None; best_cy = None
+    for blob in img.find_blobs(BlackThresholds,
+                               pixels_threshold=WALL_PIX_TH,
+                               area_threshold=WALL_PIX_TH,
+                               merge=True, margin=6):
+        bsize = blob.pixels()
+        if bsize > best_size:
+            best_size = bsize
+            best_cx = blob.cx(); best_cy = blob.cy()
+    if best_size > 0 and best_cx is not None:
+        wx, wy = norm_coord(best_cx, best_cy, img)
+        wsize = best_size
+        img.draw_circle(best_cx, best_cy, 20, color=(255,255,255))
+    else:
+        wx = wy = 255
+        wsize = 0
+
+    # (IDE 接続時のみ)簡潔なデバッグ出力
+    try:
+        ydeg = calc_angle_from_normalized(yx, yy)
+        bdeg = calc_angle_from_normalized(bx, by)
+        if ydeg is None:
+            print("Y:N/A", end=" ")
+        else:
+            print("Y:{:.1f}".format(ydeg), end=" ")
+        if bdeg is None:
+            print("B:N/A", end=" ")
+        else:
+            print("B:{:.1f}".format(bdeg), end=" ")
+        print("Wsize:{}".format(wsize))
+    except Exception:
+        pass
+
+    # 送信：summary(0x02) -> wall(0x14)
+    if STREAM_INTERVAL_MS <= 0:
+        uart_write(make_packet(HDR_GOALWALL, yx, yy, bx, by, wx, wy))
+        uart_write(make_packet(HDR_WALL, wx, wy, (wsize >> 8) & 0xFF, wsize & 0xFF, 0xFF, 0xFF))
+    else:
+        now = pyb.millis()
+        if (now - last_stream_ms) >= STREAM_INTERVAL_MS:
+            last_stream_ms = now
+            uart_write(make_packet(HDR_GOALWALL, yx, yy, bx, by, wx, wy))
+            uart_write(make_packet(HDR_WALL, wx, wy, (wsize >> 8) & 0xFF, wsize & 0xFF, 0xFF, 0xFF))
