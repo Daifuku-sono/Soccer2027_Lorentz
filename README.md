@@ -9,4 +9,6 @@ Yuki S
 Shota S
 Yuto S -->
 
-#Shine
+#進捗:ブランチを習得
+
+#たむてつばんざい
