@@ -16,6 +16,8 @@ void onReceive(uint8_t *data, size_t len) {
     }
 }
 
+//確認
+
 void setup() {
 
     Serial.begin(115200);
