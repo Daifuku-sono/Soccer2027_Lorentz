@@ -2,7 +2,7 @@
 #include <hardware/pio.h>
 #include <hardware/clocks.h>
 
-// 任意のピンを指定可能（配線に合わせて自由に変更してください）
+//  任意のピンを指定可能（配線に合わせて自由に変更してください）
 constexpr uint8_t MISO_PIN = 16;
 constexpr uint8_t CS_PIN   = 17;
 constexpr uint8_t SCK_PIN  = 18;
