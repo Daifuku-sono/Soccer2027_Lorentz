@@ -34,7 +34,6 @@ void setup() {
    
 
     Serial.println("\n[MASTER] --- System Booting ---");
-
     pinMode(CS_PIN, OUTPUT);
     digitalWrite(CS_PIN, HIGH);
 

@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <SPISlave.h>
 #include <hardware/pio.h>
 
 constexpr uint8_t MISO_PIN = 18; 
@@ -12,6 +13,8 @@ uint pio_offset;
 
 uint16_t slave_instructions[3];
 pio_program_t slave_program;
+
+SPISettings spisettings(1000000, MSBFIRST, SPI_MODE0);
 
 void onReceive(uint8_t *data, size_t len) {
     Serial.print("[SLAVE] Callback triggered. Data: ");
