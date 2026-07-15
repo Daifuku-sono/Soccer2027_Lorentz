@@ -1,95 +1,100 @@
 #include <Arduino.h>
-#include <hardware/pio.h>
-#include <hardware/clocks.h>
+#include "hardware/pio.h"
+#include "hardware/gpio.h"
 
-constexpr uint8_t MISO_PIN = 18;
-constexpr uint8_t CS_PIN   = 19;
-constexpr uint8_t SCK_PIN  = 20;
-constexpr uint8_t MOSI_PIN = 21;
+static constexpr uint SCK_PIN  = 20;
+static constexpr uint MOSI_PIN = 21;
+static constexpr uint MISO_PIN = 18;
+static constexpr uint CS_PIN   = 19;
 
-PIO spi_pio = pio0;
-uint spi_sm;
+PIO pio = pio0;
+const uint sm = 0;
 uint pio_offset;
 
+// 【修正ポイント】16進数の手打ちをやめ、SDKの関数で確実な命令を作る
 static const uint16_t master_instructions[] = {
-    0x6101, // 0: out    pins, 1         side 0 [1]  
-    0x2141  // 1: in     pins, 1         side 1 [1]  
+    pio_encode_out(pio_pins, 1) | (0 << 12), // 0: MOSIに1bit出力 + SCKをLOW
+    pio_encode_in(pio_pins, 1)  | (1 << 12)  // 1: MISOから1bit読取 + SCKをHIGH
 };
+static const pio_program_t master_program = { .instructions = master_instructions, .length = 2, .origin = -1 };
 
-static const pio_program_t master_program = {
-    .instructions = master_instructions,
-    .length = 2,
-    .origin = -1,
-};
+void spi_master_init() {
+    pio_offset = pio_add_program(pio, &master_program);
+    pio_sm_config c = pio_get_default_sm_config();
+    sm_config_set_wrap(&c, pio_offset, pio_offset + 1);
 
-uint8_t pio_spi_transfer(uint8_t data) {
-    pio_sm_put_blocking(spi_pio, spi_sm, (uint32_t)data << 24);
-    return (uint8_t)(pio_sm_get_blocking(spi_pio, spi_sm) & 0xFF);
+    sm_config_set_sideset_pins(&c, SCK_PIN);
+    sm_config_set_sideset(&c, 1, false, false);
+    sm_config_set_out_pins(&c, MOSI_PIN, 1);
+    sm_config_set_in_pins(&c, MISO_PIN);
+
+    // MSBファースト, オートプル/プッシュ有効, 8bit単位
+    sm_config_set_out_shift(&c, false, true, 8); 
+    sm_config_set_in_shift(&c, false, true, 8);  
+    sm_config_set_clkdiv(&c, 30.0f); // クロック速度調整
+
+    pio_gpio_init(pio, SCK_PIN);
+    pio_gpio_init(pio, MOSI_PIN);
+    pio_gpio_init(pio, MISO_PIN);
+
+    gpio_init(CS_PIN);
+    gpio_set_dir(CS_PIN, GPIO_OUT);
+    gpio_put(CS_PIN, 1);
+
+    pio_sm_set_consecutive_pindirs(pio, sm, SCK_PIN, 1, true);
+    pio_sm_set_consecutive_pindirs(pio, sm, MOSI_PIN, 1, true);
+    pio_sm_set_consecutive_pindirs(pio, sm, MISO_PIN, 1, false);
+
+    // 万が一ゴミが残っていた時のためにFIFOをクリア
+    pio_sm_clear_fifos(pio, sm);
+
+    pio_sm_init(pio, sm, pio_offset, &c);
+    pio_sm_set_enabled(pio, sm, true);
+}
+
+uint8_t spi_master_txrx(uint8_t tx) {
+    gpio_put(CS_PIN, 0);
+    delayMicroseconds(2);
+
+    // MSBファーストなので上位ビットに寄せて送信
+    pio_sm_put(pio, sm, (uint32_t)tx << 24);
+
+    // フリーズ防止のタイムアウト付き受信
+    uint32_t t = millis();
+    while (pio_sm_is_rx_fifo_empty(pio, sm)) {
+        if (millis() - t > 100) {
+            Serial.println("[Error] Rx Timeout!");
+            gpio_put(CS_PIN, 1);
+            return 0xFF; // エラー時は0xFFを返す
+        }
+    }
+    uint8_t rx = (uint8_t)(pio_sm_get(pio, sm) & 0xFF);
+
+    delayMicroseconds(2);
+    gpio_put(CS_PIN, 1);
+    return rx;
 }
 
 void setup() {
     Serial.begin(115200);
-    // PlatformIO等でシリアル接続を待つための処理
-    uint32_t t = millis();
-   
-
-    Serial.println("\n[MASTER] --- System Booting ---");
-    pinMode(CS_PIN, OUTPUT);
-    digitalWrite(CS_PIN, HIGH);
-
-    spi_sm = pio_claim_unused_sm(spi_pio, true);
-    pio_offset = pio_add_program(spi_pio, &master_program);
-
-    pio_sm_config c = pio_get_default_sm_config();
-    sm_config_set_wrap(&c, pio_offset, pio_offset + 1);
-
-    sm_config_set_out_pins(&c, MOSI_PIN, 1);
-    sm_config_set_in_pins(&c, MISO_PIN);
-    sm_config_set_sideset_pins(&c, SCK_PIN);
-    sm_config_set_sideset(&c, 1, false, false); 
-
-    sm_config_set_out_shift(&c, false, true, 8);
-    sm_config_set_in_shift(&c, false, true, 8);
-
-    float div = (float)clock_get_hz(clk_sys) / (1000000 * 4);
-    sm_config_set_clkdiv(&c, div);
-
-    pio_gpio_init(spi_pio, MOSI_PIN);
-    pio_gpio_init(spi_pio, SCK_PIN);
-    pio_gpio_init(spi_pio, MISO_PIN);
-
-    pio_sm_set_consecutive_pindirs(spi_pio, spi_sm, MOSI_PIN, 1, true);
-    pio_sm_set_consecutive_pindirs(spi_pio, spi_sm, SCK_PIN, 1, true);
-    pio_sm_set_consecutive_pindirs(spi_pio, spi_sm, MISO_PIN, 1, false);
-
-    pio_sm_init(spi_pio, spi_sm, pio_offset, &c);
-    pio_sm_set_enabled(spi_pio, spi_sm, true);
-
-    Serial.println("[MASTER] PIO SPI Ready");
+    delay(2000);
+    Serial.println("--- Master Ready ---");
+    spi_master_init();
 }
 
 void loop() {
-    char data[] = "hello";
+    uint8_t tx_data = 0x12;
+    Serial.printf("Sending: 0x%02X ... ", tx_data);
     
-    Serial.println("\n[MASTER] === Starting Transaction ===");
+    uint8_t r = spi_master_txrx(tx_data);
     
-    digitalWrite(CS_PIN, LOW); 
-    Serial.println("[MASTER] CS -> LOW (通信開始)");
-
-    for (int i = 0; i < 5; i++) {
-        Serial.print("[MASTER] Sending: '");
-        Serial.print(data[i]);
-        Serial.print("' ... ");
-        
-        uint8_t rx = pio_spi_transfer(data[i]);
-        
-        Serial.print("Done. RX: 0x");
-        Serial.println(rx, HEX);
-    }
-
-    digitalWrite(CS_PIN, HIGH); 
-    Serial.println("[MASTER] CS -> HIGH (通信終了)");
-    Serial.println("[MASTER] ============================");
-
-    delay(2000);
+    Serial.printf("Received: 0x%02X\n", r);
+    delay(1000);
+    tx_data = 0x24;
+    Serial.printf("Sending: 0x%02X ... ", tx_data);
+    
+    r = spi_master_txrx(tx_data);
+    
+    Serial.printf("Received: 0x%02X\n", r);
+    delay(1000);
 }
