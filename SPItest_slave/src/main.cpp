@@ -6,8 +6,8 @@ constexpr uint32_t PIO_BAUD = 115200;
 constexpr uint8_t CH_NUM = 4;
 
 // Slave 側は Master と TX/RX を逆にする
-constexpr uint8_t TX_PINS[CH_NUM] = {3, 5, 7, 9};
-constexpr uint8_t RX_PINS[CH_NUM] = {2, 4, 6, 8};
+constexpr uint8_t TX_PINS[CH_NUM] = {3, 11, 7, 15};
+constexpr uint8_t RX_PINS[CH_NUM] = {2, 10, 6, 14};
 
 // 変数名を pioUartX に変更して衝突を回避
 SerialPIO pioUart0(TX_PINS[0], RX_PINS[0]);
