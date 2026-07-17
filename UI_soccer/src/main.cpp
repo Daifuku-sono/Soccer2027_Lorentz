@@ -1,11 +1,7 @@
-#include <Arduino.h>
 #include <SPI.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7789.h>
 #include <avr/pgmspace.h>
-#include <ArduinoBLE.h>
-
-//検証
 
 // ----- 配線 -----
 // GND  -> GND
@@ -487,7 +483,7 @@ int lastcount_x = 0;
 #define maxcount_x 3
 int count_y = 0;
 int lastcount_y = 0;
-#define maxcount_y 9
+#define maxcount_y 3
 int buttonL = 0;
 int buttonR = 0;
 int buttonU = 0;
@@ -497,29 +493,6 @@ int lastbuttonR = 0;
 int lastbuttonU = 0;
 int lastbuttonD = 0;
 bool check = false;
-float cnt = 0;
-
-void drawtext(int textsize, int x, int y, const char* text){
-  tft.setTextSize(textsize);
-  tft.setTextColor(ST77XX_WHITE);
-  tft.setCursor(x, y);
-  tft.print(text);
-}
-
-BLEService ledService("ae7daac9-caf9-e3af-976b-4d3a0d6f94e3");
-
-// 3バイト受信できるようにする
-BLECharacteristic switchChar("197f0bd9-de9c-6d0c-eaf4-09728681ee27",
-                             BLERead | BLEWrite, 3);
-
-                             unsigned long lastReceiveTime = 0;
-const unsigned long timeout = 500;
-
-int Ball_X = 0;
-int Ball_Y = 0;
-int Ball_cnt = 0;
-
-
 
 void setup() {
   Serial.begin(115200);
@@ -532,109 +505,16 @@ void setup() {
   tft.setRotation(2);
   tft.fillScreen(ST77XX_BLACK);
   tft.setTextSize(5);
-  pinMode(LED_RED, OUTPUT);
-  pinMode(LED_GREEN, OUTPUT);
-  pinMode(LED_BLUE, OUTPUT);
   pinMode(0, INPUT);
   pinMode(1, INPUT);
   pinMode(2, INPUT);
   pinMode(9, INPUT);
-  digitalWrite(LED_RED, HIGH);
-  digitalWrite(LED_GREEN, HIGH);
-  digitalWrite(LED_BLUE, HIGH);
-
-  if (!BLE.begin()) {
-    while (1)
-      ;
-
-  }
-  BLE.setLocalName("LED3Control");
-  BLE.setAdvertisedService(ledService);
-  ledService.addCharacteristic(switchChar);
-  BLE.addService(ledService);
-  BLE.advertise();
-
-  //Serial.println("Peripheral Ready. Waiting...");
-  tft.fillRect(0, 0, 240, 25, ST77XX_GREEN);
-  tft.drawCircle(80, 140, 75, ST77XX_MAGENTA);
-}
-
-void BLEperipheral() {
-  BLEDevice central = BLE.central();
-
-  if (central) {
-    //Serial.println("Central connected!");
-    tft.fillRect(0, 0, 240, 25, ST77XX_GREEN);
-    while (central.connected()) {
-      if (switchChar.written()) {
-        uint8_t buf[3] = { 0 };
-
-        // 3バイトまとめて読む
-        int len = switchChar.readValue(buf, 3);
-        if (len == 3) {
-          uint8_t firstVal = buf[0];
-          uint8_t secondVal = buf[1];
-          uint8_t thirdVal = buf[2];
-
-          lastReceiveTime = millis();
-
-          //Serial.print("Received: ");
-          //Serial.print(firstVal);
-          //Serial.print(", ");
-          //Serial.print(secondVal);
-          //Serial.print(", ");
-          //Serial.println(thirdVal);
-
-          if (firstVal * secondVal + 1 == thirdVal) {
-            Ball_cnt += 1;
-            digitalWrite(LED_RED, (firstVal & 0x01) ? LOW : HIGH);
-            digitalWrite(LED_GREEN, (firstVal & 0x02) ? LOW : HIGH);
-            digitalWrite(LED_BLUE, (firstVal & 0x04) ? LOW : HIGH);
-            tft.drawLine(80, 140, Ball_X, Ball_Y, ST77XX_BLACK);
-            Ball_X = 80 + 73 * cos(Ball_cnt / (180.0 / PI));
-            Ball_Y = 140 + 73 * sin(Ball_cnt / (180.0 / PI));
-            tft.drawLine(80, 140, Ball_X, Ball_Y, ST77XX_CYAN);
-            tft.setCursor(160, 50);
-            tft.setTextSize(4);
-            tft.setTextColor(ST77XX_WHITE);
-            tft.print(Ball_cnt);
-            tft.setCursor(160, 50);
-            tft.setTextSize(4);
-            tft.setTextColor(ST77XX_BLACK);
-            tft.println(Ball_cnt);
-            tft.setCursor(160, 150);
-            tft.setTextSize(4);
-            tft.setTextColor(ST77XX_WHITE);
-            tft.print("10");
-            tft.setCursor(160, 150);
-            tft.setTextSize(4);
-            tft.setTextColor(ST77XX_BLACK);
-            tft.println("10");
-            if (Ball_cnt >= 360) Ball_cnt = 0;
-          } else {
-            tft.fillRect(0, 0, 240, 25, ST77XX_RED);
-            //Serial.println("Data mismatch! Ignored.");
-          }
-        }
-      }
-
-      if (millis() - lastReceiveTime > timeout) {
-        // 必要ならタイムアウト処理
-      }
-    }
-
-    tft.fillRect(0, 0, 240, 25, ST77XX_RED);
-    //Serial.println("Central disconnected.");
-    digitalWrite(LED_RED, HIGH);
-    digitalWrite(LED_GREEN, HIGH);
-    digitalWrite(LED_BLUE, HIGH);
-  }
 }
 void loop() {
   buttonL = digitalRead(2);
   buttonR = digitalRead(9);
-  buttonU = digitalRead(1);
-  buttonD = digitalRead(0);
+  buttonU = digitalRead(0);
+  buttonD = digitalRead(1);
   if (buttonL == LOW && buttonR == LOW && buttonU == LOW && buttonD == LOW) {
     check = false;
   } else {
@@ -678,29 +558,15 @@ void loop() {
   lastbuttonU = buttonU;
   lastbuttonD = buttonD;
   if ((count_x != lastcount_x) || (count_y != lastcount_y)) {
-    tft.fillScreen(ST77XX_BLACK);
     if (count_y == 0) {
       if (count_x == 0) {
-        drawtext(5, 30, 110, "1 Line");
-        drawtext(2, 84, 10, "9 vol2");
-        drawtext(2, 84, 225, "3 Gyro");
-        drawtext(4, 48, 53, "0 Mode");
-        drawtext(4, 48, 173, "2 Ball");
+        tft.fillScreen(ST77XX_BLACK);
+        tft.setTextColor(ST77XX_WHITE);
+        tft.setCursor(10, 10);
+        tft.print(count_y);
       }
       if (count_x == 1) {
-        tft.drawCircle(120,120,80,ST77XX_WHITE);
-        while( buttonL ==LOW && buttonR ==LOW){
-          tft.drawLine(120,120,120 + 75 * cos(cnt),120 + 75 * sin(cnt),ST77XX_WHITE);
-          buttonL = digitalRead(2);
-          buttonR = digitalRead(9);
-          buttonU = digitalRead(1);
-          buttonD = digitalRead(0);
-          delay(10);
-          tft.drawLine(120,120,120 + 75 * cos(cnt),120 + 75 * sin(cnt),ST77XX_BLACK);   
-          if(buttonU == HIGH) cnt += 0.1;
-          if(buttonD == HIGH) cnt -= 0.1;
-          
-        }
+        tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_MAGENTA);
       }
       if (count_x == 2) {
         tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_WHITE);
@@ -710,13 +576,14 @@ void loop() {
       }
     } else if(count_y == 1){
       if (count_x == 0) {
-        drawtext(5, 30, 110, "2 Ball");
-        drawtext(2, 84, 10, "0 Mode");
-        drawtext(2, 84, 225, "4 Cam");
-        drawtext(4, 48, 53, "1 Line");
-        drawtext(4, 48, 173, "3 Gyro");
+        tft.fillScreen(ST77XX_BLACK);
+        tft.setTextColor(ST77XX_WHITE);
+        tft.setCursor(10, 10);
+        tft.print(count_y);
+        tft.setCursor(10, 60);
+        tft.print("Line Sensor");
       }
-if (count_x == 1) {
+      if (count_x == 1) {
         tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_RED);
       }
       if (count_x == 2) {
@@ -727,76 +594,10 @@ if (count_x == 1) {
       }
     }else if(count_y == 2){
       if (count_x == 0) {
-        drawtext(5, 30, 110, "3 Gyro");
-        drawtext(2, 84, 10, "1 Line");
-        drawtext(2, 84, 225, "5 BLE");
-        drawtext(4, 48, 53, "2 Ball");
-        drawtext(4, 48, 173, "4 Cam");
-      }if (count_x == 1) {
-        tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_RED);
-      }
-      if (count_x == 2) {
-        tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_BLUE);
-      }
-      if (count_x == 3) {
-        tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_YELLOW);
-      }
-    }else if(count_y == 3){
-      if (count_x == 0) {
-        drawtext(5, 30, 110, "4 Cam");
-        drawtext(2, 84, 10, "2 Ball");
-        drawtext(2, 84, 225, "6 Cam2");
-        drawtext(4, 48, 53, "3 Gyro");
-        drawtext(4, 48, 173, "5 BLE");
-      }if (count_x == 1) {
-        tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_RED);
-      }
-      if (count_x == 2) {
-        tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_BLUE);
-      }
-      if (count_x == 3) {
-        tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_YELLOW);
-      }
-    }else if(count_y == 4){
-      if (count_x == 0) {
-        drawtext(5, 30, 110, "5 BLE");
-        drawtext(2, 84, 10, "3 Gyro");
-        drawtext(2, 84, 225, "7 Enc");
-        drawtext(4, 48, 53, "4 Cam");
-        drawtext(4, 48, 173, "6 Cam2");
-      }if (count_x == 1) {
-        BLEperipheral();
-      }
-      if (count_x == 2) {
-        BLEperipheral();
-      }
-      if (count_x == 3) {
-        BLEperipheral();
-      }
-    }else if(count_y == 5){
-      if (count_x == 0) {
-        drawtext(5, 30, 110, "6 Cam2");
-        drawtext(2, 84, 10, "4 Cam");
-        drawtext(2, 84, 225, "8 Vol1");
-        drawtext(4, 48, 53, "5 BLE");
-        drawtext(4, 48, 173, "7 Enc");
-        
-      }if (count_x == 1) {
-        tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_RED);
-      }
-      if (count_x == 2) {
-        tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_BLUE);
-      }
-      if (count_x == 3) {
-        tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_YELLOW);
-      }
-    }else if(count_y == 6){
-      if (count_x == 0) {
-        drawtext(5, 30, 110, "7 Enc");
-        drawtext(2, 84, 10, "5 BLE");
-        drawtext(2, 84, 225, "9 vol2");
-        drawtext(4, 48, 53, "6 Cam2");
-        drawtext(4, 48, 173, "8 Vol1");
+        tft.fillScreen(ST77XX_BLACK);
+        tft.setTextColor(ST77XX_WHITE);
+        tft.setCursor(10, 10);
+        tft.print(count_y);
       }
       if (count_x == 1) {
         tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_RED);
@@ -807,46 +608,14 @@ if (count_x == 1) {
       if (count_x == 3) {
         tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_YELLOW);
       }
-    }else if(count_y == 7){
+    }else if(count_y == 3){
       if (count_x == 0) {
-        drawtext(5, 30, 110, "8 Vol1");
-        drawtext(2, 84, 10, "6 Cam2");
-        drawtext(2, 84, 225, "0 Mode");
-        drawtext(4, 48, 53, "7 Enc");
-        drawtext(4, 48, 173, "9 Vol2");
-      }if (count_x == 1) {
-        tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_RED);
+        tft.fillScreen(ST77XX_BLACK);
+        tft.setTextColor(ST77XX_WHITE);
+        tft.setCursor(10, 10);
+        tft.print(count_y);
       }
-      if (count_x == 2) {
-        tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_BLUE);
-      }
-      if (count_x == 3) {
-        tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_YELLOW);
-      }
-    }else if(count_y == 8){
-      if (count_x == 0) {
-        drawtext(5, 30, 110, "9 Vol2");
-        drawtext(2, 84, 10, "7 Enc");
-        drawtext(2, 84, 225, "1 Line");
-        drawtext(4, 48, 53, "8 Vol1");
-        drawtext(4, 48, 173, "0 Mode");
-      }if (count_x == 1) {
-        tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_RED);
-      }
-      if (count_x == 2) {
-        tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_BLUE);
-      }
-      if (count_x == 3) {
-        tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_YELLOW);
-      }
-    }else if(count_y == 9){
-      if (count_x == 0) {
-        drawtext(5, 30, 110, "0 Mode");
-        drawtext(2, 84, 10, "8 Vol1");
-        drawtext(2, 84, 225, "2 Ball");
-        drawtext(4, 48, 53, "9 Vol2");
-        drawtext(4, 48, 173, "1 Line");
-      }if (count_x == 1) {
+      if (count_x == 1) {
         tft.drawBitmap(0, 0, epd_bitmap_image, IMG_W, IMG_H, ST77XX_RED);
       }
       if (count_x == 2) {
@@ -860,4 +629,3 @@ if (count_x == 1) {
   lastcount_x = count_x;
   lastcount_y = count_y;
 }
-
