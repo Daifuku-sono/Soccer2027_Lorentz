@@ -584,7 +584,6 @@ void loop() {
           buttonR = digitalRead(9);
           buttonU = digitalRead(1);
           buttonD = digitalRead(0);
-          delay(10);
           tft.drawLine(120,120,120 + 75 * cos(cnt),120 + 75 * sin(cnt),ST77XX_BLACK);   
           if(buttonU == HIGH) cnt += 0.1;
           if(buttonD == HIGH) cnt -= 0.1;

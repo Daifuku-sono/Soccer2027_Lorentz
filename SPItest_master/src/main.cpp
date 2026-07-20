@@ -5,18 +5,31 @@
 
 // === UART 設定 ===
 constexpr uint32_t USB_BAUD = 115200;
+constexpr uint32_t HW_BAUD  = 115200;
 constexpr uint32_t PIO_BAUD = 115200;
-constexpr uint8_t CH_NUM = 3; // 14, 15ピンを削除して3chに
+constexpr uint8_t CH_NUM = 5; // 合計5チャンネル
 
-constexpr uint8_t TX_PINS[CH_NUM] = {2, 10, 6};
-constexpr uint8_t RX_PINS[CH_NUM] = {3, 11, 7};
+// ハードウェアUARTのピン (クロス結線前提)
+constexpr uint8_t HW_UART0_TX = 0;
+constexpr uint8_t HW_UART0_RX = 1;
+constexpr uint8_t HW_UART1_TX = 4;
+constexpr uint8_t HW_UART1_RX = 5;
 
-SerialPIO pioUart0(TX_PINS[0], RX_PINS[0]);
-SerialPIO pioUart1(TX_PINS[1], RX_PINS[1]);
-SerialPIO pioUart2(TX_PINS[2], RX_PINS[2]);
+// PIO UARTのピン (ストレート結線前提)
+constexpr uint8_t PIO_TX_PINS[3] = {2, 10, 6};
+constexpr uint8_t PIO_RX_PINS[3] = {3, 11, 7};
 
-SerialPIO* const uarts[CH_NUM] = {
-  &pioUart0, &pioUart1, &pioUart2
+SerialPIO pioUart0(PIO_TX_PINS[0], PIO_RX_PINS[0]);
+SerialPIO pioUart1(PIO_TX_PINS[1], PIO_RX_PINS[1]);
+SerialPIO pioUart2(PIO_TX_PINS[2], PIO_RX_PINS[2]);
+
+// すべてのUARTをStream型の配列にまとめて共通処理する
+Stream* const uarts[CH_NUM] = {
+  &Serial1,   // ch0: 組み込みUART0
+  &Serial2,   // ch1: 組み込みUART1
+  &pioUart0,  // ch2: PIO UART
+  &pioUart1,  // ch3: PIO UART
+  &pioUart2   // ch4: PIO UART
 };
 
 struct LineBuffer {
@@ -32,19 +45,18 @@ static constexpr uint MISO_PIN = 18;
 static constexpr uint CS_PIN   = 19;
 
 PIO pio = pio0;
-uint sm; // 衝突を防ぐため定数から変数に変更
+uint sm;
 uint pio_offset;
 
 static const uint16_t master_instructions[] = {
-    pio_encode_out(pio_pins, 1) | (0 << 12), // 0: MOSIに1bit出力 + SCKをLOW
-    pio_encode_in(pio_pins, 1)  | (1 << 12)  // 1: MISOから1bit読取 + SCKをHIGH
+    pio_encode_out(pio_pins, 1) | (0 << 12),
+    pio_encode_in(pio_pins, 1)  | (1 << 12)
 };
 static const pio_program_t master_program = { .instructions = master_instructions, .length = 2, .origin = -1 };
 
-
 void spi_master_init() {
     pio_offset = pio_add_program(pio, &master_program);
-    sm = pio_claim_unused_sm(pio, true); // 空いているステートマシンを安全に確保
+    sm = pio_claim_unused_sm(pio, true); 
 
     pio_sm_config c = pio_get_default_sm_config();
     sm_config_set_wrap(&c, pio_offset, pio_offset + 1);
@@ -109,7 +121,7 @@ void handleLine(uint8_t ch, const char* s) {
 }
 
 void pollPort(uint8_t ch) {
-  SerialPIO &p = *uarts[ch];
+  Stream &p = *uarts[ch];
   while (p.available() > 0) {
     char c = (char)p.read();
     if (c == '\r') continue;
@@ -140,30 +152,41 @@ void setup() {
   Serial.begin(USB_BAUD);
   delay(1500);
 
-  // UART初期化
+  // ハードウェアUARTの初期化
+  Serial1.setTX(HW_UART0_TX);
+  Serial1.setRX(HW_UART0_RX);
+  Serial1.begin(HW_BAUD);
+
+  Serial2.setTX(HW_UART1_TX);
+  Serial2.setRX(HW_UART1_RX);
+  Serial2.begin(HW_BAUD);
+
+  // PIO UARTの初期化
+  pioUart0.begin(PIO_BAUD);
+  pioUart1.begin(PIO_BAUD);
+  pioUart2.begin(PIO_BAUD);
+
   for (uint8_t i = 0; i < CH_NUM; i++) {
-    uarts[i]->begin(PIO_BAUD);
     clearBuffer(rxbuf[i]);
   }
 
   // SPI初期化
   spi_master_init();
   
-  Serial.println("MASTER start");
+  Serial.println("MASTER start (5x UART + 1x SPI)");
 }
 
 void loop() {
   static uint32_t lastSend = 0;
   static uint32_t seq = 0;
 
-  // 500msごとにUART送信 ＋ SPI送信
   if (millis() - lastSend >= 500) {
     lastSend = millis();
     
     // UART送信
     sendAll(seq);
 
-    // SPI送信テスト (seq番号の下位8bitを送信)
+    // SPI送信テスト
     uint8_t tx_data = seq & 0xFF;
     Serial.printf("[MASTER] SPI -> Sending: 0x%02X ... ", tx_data);
     uint8_t r = spi_master_txrx(tx_data);
@@ -172,10 +195,10 @@ void loop() {
     seq++;
   }
 
-  // UARTの高速ポーリング
+  // 5系統すべてのUART受信処理
   for (uint8_t ch = 0; ch < CH_NUM; ch++) {
     pollPort(ch);
   }
 
-  delay(1); // USBシリアルのフリーズ防止
+  delay(1); 
 }
