@@ -1,28 +1,39 @@
-# main.py -- Yellow/Blue goals + single wall (coord + size) を送信
+# main.py -- Yellow/Blue goals(最大) + Orange Ball(最大) + Wall(円形範囲内の最大)
 import sensor, image, time, math, pyb
 from pyb import UART
 
 # ---------- 設定 ----------
-STREAM_INTERVAL_MS = 200   # 送信周期(ms). 0 = 毎フレーム送信
-PIXELS_THRESHOLD = 20      # find_blobs の閾値（調整）
-WALL_PIX_TH = 70
+STREAM_INTERVAL_MS = 0    
+PIXELS_THRESHOLD   = 20   # ゴール・ボールの find_blobs 閾値
+WALL_PIX_TH        = 15   # 黒(壁/線)の find_blobs 閾値
+
+# ミラーの中心座標（キャリブレーション用）
+MIRROR_CX = 200
+MIRROR_CY = 150
+
+# 黒を認識する円の半径
+WALL_RADIUS = 300
 
 # ヘッダ
 HDR_GOALWALL = 0x02
 HDR_WALL     = 0x14
+HDR_YELLOW   = 0x18
+HDR_BLUE     = 0x19
+HDR_BALL     = 0x1A
 
 # UART (OpenMV -> MCU)
 uart = UART(3, 9600, timeout_char=1000)
 uart.init(9600, bits=8, parity=None, stop=1, timeout_char=1000)
 
 # 色閾値（L A B）
-YellowThresholds = [(64, 91, -6, 14, 26, 62)]
+YellowThresholds = [(56, 89, 13, -5, 75, 15)]
 BlueThresholds   = [(85, 0, 68, -128, -48, -17)]
-# 黒（壁）閾値（必要なら調整／追加）
-BlackThresholds  = [(91, 52, 61, 8, 20, -10)]
+BlackThresholds  = [(33, 0, 5, -34, -29, 66)]
+OrangeThresholds = [(61, 34, 10, 83, 5, 56)]  # 環境に合わせて再調整
 
 # ROI
-GoalRoi = (30, 30, 260, 260)
+GoalRoi = (0, 0, 320, 320)
+WallRoi = (0, 0, 320, 320)
 
 # ---------- 初期化 ----------
 sensor.reset()
@@ -31,8 +42,9 @@ try:
     sensor.set_framesize(sensor.B320X320)
 except Exception:
     sensor.set_framesize(sensor.QVGA)
+
 sensor.skip_frames(time=300)
-# 自動補正（環境により変える）
+
 try:
     sensor.set_auto_exposure(True)
     sensor.set_auto_gain(True)
@@ -43,16 +55,33 @@ except Exception:
 clock = time.clock()
 last_stream_ms = pyb.millis()
 
-# helpers
-def norm_coord(cx, cy, img):
+# ---------- helpers ----------
+def norm_coord_from_mirror(cx, cy, img):
     if cx is None or cy is None:
         return 255, 255
-    nx = int((cx * 255) // img.width())
-    ny = int((cy * 255) // img.height())
+    nx = int(((cx - MIRROR_CX) * 128 // (img.width() // 2)) + 128)
+    ny = int(((cy - MIRROR_CY) * 128 // (img.height() // 2)) + 128)
+    nx = max(0, min(254, nx))
+    ny = max(0, min(254, ny))
     return nx, ny
 
+def clamp8(v):
+    if v is None or v < 0:
+        return 0
+    if v > 255:
+        return 255
+    return int(v)
+
 def make_packet(hdr, b1, b2, b3, b4, b5=0xFF, b6=0xFF):
-    return bytearray([hdr & 0xFF, b1 & 0xFF, b2 & 0xFF, b3 & 0xFF, b4 & 0xFF, b5 & 0xFF, b6 & 0xFF])
+    return bytearray([
+        hdr & 0xFF,
+        b1 & 0xFF,
+        b2 & 0xFF,
+        b3 & 0xFF,
+        b4 & 0xFF,
+        b5 & 0xFF,
+        b6 & 0xFF
+    ])
 
 def uart_write(pkt):
     try:
@@ -71,77 +100,254 @@ def calc_angle_from_normalized(nx, ny):
         deg += 360.0
     return deg % 360.0
 
+print("OpenMV: goals(Max) + Ball(Max) + Wall(Circle Area Max) streamer ready")
+
 while True:
     clock.tick()
     img = sensor.snapshot()
 
+    # IDE接続時のみ: 黒探索用の境界円を赤色で描画
+    try:
+        img.draw_circle(MIRROR_CX, MIRROR_CY, WALL_RADIUS, color=(255, 0, 0))
+    except Exception:
+        pass
+
+    # --- Orange Ball ---
+    o_best = 0
+    o_cx = None
+    o_cy = None
+    o_w = 0
+    o_h = 0
+    o_size = 0
+
+    for blob in img.find_blobs(
+        OrangeThresholds,
+        roi=GoalRoi,
+        pixels_threshold=PIXELS_THRESHOLD,
+        area_threshold=PIXELS_THRESHOLD,
+        merge=True,
+        margin=12
+    ):
+        bsize = blob.pixels()
+        if bsize > o_best:
+            o_best = bsize
+            o_size = bsize
+            o_w = blob.w()
+            o_h = blob.h()
+            o_cx = blob.cx()
+            o_cy = blob.cy()
+
+    if o_best > 0:
+        ox, oy = norm_coord_from_mirror(o_cx, o_cy, img)
+        try:
+            img.draw_circle(o_cx, o_cy, 4, color=(255, 165, 0))
+            img.draw_rectangle(o_cx - o_w // 2, o_cy - o_h // 2, o_w, o_h, color=(255, 165, 0))
+        except Exception:
+            pass
+    else:
+        ox = oy = 255
+        o_size = 0
+        o_w = 0
+        o_h = 0
+
     # --- Yellow goal ---
-    y_best = 0; y_cx = None; y_cy = None
-    for blob in img.find_blobs(YellowThresholds, roi=GoalRoi,
-                               pixels_threshold=PIXELS_THRESHOLD,
-                               area_threshold=PIXELS_THRESHOLD,
-                               merge=True, margin=6):
-        if blob.pixels() > y_best:
-            y_best = blob.pixels(); y_cx = blob.cx(); y_cy = blob.cy()
+    y_best = 0
+    y_cx = None
+    y_cy = None
+    y_w = 0
+    y_h = 0
+    y_size = 0
+
+    for blob in img.find_blobs(
+        YellowThresholds,
+        roi=GoalRoi,
+        pixels_threshold=PIXELS_THRESHOLD,
+        area_threshold=PIXELS_THRESHOLD,
+        merge=True,
+        margin=6
+    ):
+        bsize = blob.pixels()
+        if bsize > y_best:
+            y_best = bsize
+            y_size = bsize
+            y_w = blob.w()
+            y_h = blob.h()
+            y_cx = blob.cx()
+            y_cy = blob.cy()
+
     if y_best > 0:
-        yx, yy = norm_coord(y_cx, y_cy, img)
+        yx, yy = norm_coord_from_mirror(y_cx, y_cy, img)
+        try:
+            img.draw_circle(y_cx, y_cy, 4, color=(255, 255, 255))
+            img.draw_rectangle(y_cx - y_w // 2, y_cy - y_h // 2, y_w, y_h, color=(255, 255, 255))
+        except Exception:
+            pass
     else:
         yx = yy = 255
+        y_size = 0
+        y_w = 0
+        y_h = 0
 
     # --- Blue goal ---
-    b_best = 0; b_cx = None; b_cy = None
-    for blob in img.find_blobs(BlueThresholds, roi=GoalRoi,
-                               pixels_threshold=PIXELS_THRESHOLD,
-                               area_threshold=PIXELS_THRESHOLD,
-                               merge=True, margin=6):
-        if blob.pixels() > b_best:
-            b_best = blob.pixels(); b_cx = blob.cx(); b_cy = blob.cy()
+    b_best = 0
+    b_cx = None
+    b_cy = None
+    b_w = 0
+    b_h = 0
+    b_size = 0
+
+    for blob in img.find_blobs(
+        BlueThresholds,
+        roi=GoalRoi,
+        pixels_threshold=PIXELS_THRESHOLD,
+        area_threshold=PIXELS_THRESHOLD,
+        merge=True,
+        margin=6
+    ):
+        bsize = blob.pixels()
+        if bsize > b_best:
+            b_best = bsize
+            b_size = bsize
+            b_w = blob.w()
+            b_h = blob.h()
+            b_cx = blob.cx()
+            b_cy = blob.cy()
+
     if b_best > 0:
-        bx, by = norm_coord(b_cx, b_cy, img)
+        bx, by = norm_coord_from_mirror(b_cx, b_cy, img)
+        try:
+            img.draw_circle(b_cx, b_cy, 4, color=(255, 255, 255))
+            img.draw_rectangle(b_cx - b_w // 2, b_cy - b_h // 2, b_w, b_h, color=(255, 255, 255))
+        except Exception:
+            pass
     else:
         bx = by = 255
+        b_size = 0
+        b_w = 0
+        b_h = 0
 
-    # --- Single wall: 画面全体で最大の黒 blob を選ぶ ---
-    best_size = 0; best_cx = None; best_cy = None
-    for blob in img.find_blobs(BlackThresholds,
-                               pixels_threshold=WALL_PIX_TH,
-                               area_threshold=WALL_PIX_TH,
-                               merge=True, margin=6):
-        bsize = blob.pixels()
-        if bsize > best_size:
-            best_size = bsize
-            best_cx = blob.cx(); best_cy = blob.cy()
-    if best_size > 0 and best_cx is not None:
-        wx, wy = norm_coord(best_cx, best_cy, img)
-        wsize = best_size
-        img.draw_circle(best_cx, best_cy, 20, color=(255,255,255))
+    # --- 黒(壁) 円の中にある最大のものを取得 ---
+    w_best = 0
+    best_cx = None
+    best_cy = None
+    wsize = 0
+
+    for blob in img.find_blobs(
+        BlackThresholds,
+        roi=WallRoi,
+        pixels_threshold=WALL_PIX_TH,
+        area_threshold=WALL_PIX_TH,
+        merge=True,
+        margin=10
+    ):
+        dx = blob.cx() - MIRROR_CX
+        dy = blob.cy() - MIRROR_CY
+        if (dx * dx + dy * dy) <= (WALL_RADIUS * WALL_RADIUS):
+            bsize = blob.pixels()
+            if bsize > w_best:
+                w_best = bsize
+                wsize = bsize
+                best_cx = blob.cx()
+                best_cy = blob.cy()
+
+    if w_best > 0:
+        wx, wy = norm_coord_from_mirror(best_cx, best_cy, img)
+        try:
+            img.draw_cross(best_cx, best_cy, size=10, color=(255, 255, 255))
+        except Exception:
+            pass
     else:
         wx = wy = 255
         wsize = 0
 
-    # (IDE 接続時のみ)簡潔なデバッグ出力
+    # --- デバッグ出力 ---
     try:
         ydeg = calc_angle_from_normalized(yx, yy)
         bdeg = calc_angle_from_normalized(bx, by)
+        odeg = calc_angle_from_normalized(ox, oy)
+        wdeg = calc_angle_from_normalized(wx, wy)
+
+        if odeg is None:
+            print("Ball:N/A", end=" | ")
+        else:
+            print("Ball:{:.1f} Size:{}".format(odeg, o_size), end=" | ")
+
         if ydeg is None:
-            print("Y:N/A", end=" ")
+            print("Y:N/A", end=" | ")
         else:
-            print("Y:{:.1f}".format(ydeg), end=" ")
+            print("Y:{:.1f} Size:{}".format(ydeg, y_size), end=" | ")
+
         if bdeg is None:
-            print("B:N/A", end=" ")
+            print("B:N/A", end=" | ")
         else:
-            print("B:{:.1f}".format(bdeg), end=" ")
-        print("Wsize:{}".format(wsize))
+            print("B:{:.1f} Size:{}".format(bdeg, b_size), end=" | ")
+
+        if wdeg is None:
+            print("Wall:N/A")
+        else:
+            print("Wall Angle:{:.1f} Size:{}".format(wdeg, wsize))
     except Exception:
         pass
 
-    # 送信：summary(0x02) -> wall(0x14)
+    # --- 送信処理 ---
+    now = pyb.millis()
+    do_send = False
+
     if STREAM_INTERVAL_MS <= 0:
-        uart_write(make_packet(HDR_GOALWALL, yx, yy, bx, by, wx, wy))
-        uart_write(make_packet(HDR_WALL, wx, wy, (wsize >> 8) & 0xFF, wsize & 0xFF, 0xFF, 0xFF))
+        do_send = True
     else:
-        now = pyb.millis()
         if (now - last_stream_ms) >= STREAM_INTERVAL_MS:
             last_stream_ms = now
-            uart_write(make_packet(HDR_GOALWALL, yx, yy, bx, by, wx, wy))
-            uart_write(make_packet(HDR_WALL, wx, wy, (wsize >> 8) & 0xFF, wsize & 0xFF, 0xFF, 0xFF))
+            do_send = True
+
+    if do_send:
+        # summary (互換性維持)
+        uart_write(make_packet(HDR_GOALWALL, yx, yy, bx, by, wx, wy))
+
+        # ball
+        o_size_send = int(o_size) & 0xFFFF
+        uart_write(make_packet(
+            HDR_BALL,
+            ox if isinstance(ox, int) else 255,
+            oy if isinstance(oy, int) else 255,
+            (o_size_send >> 8) & 0xFF,
+            o_size_send & 0xFF,
+            clamp8(o_w),
+            clamp8(o_h)
+        ))
+
+        # yellow
+        y_size_send = int(y_size) & 0xFFFF
+        uart_write(make_packet(
+            HDR_YELLOW,
+            yx if isinstance(yx, int) else 255,
+            yy if isinstance(yy, int) else 255,
+            (y_size_send >> 8) & 0xFF,
+            y_size_send & 0xFF,
+            clamp8(y_w),
+            clamp8(y_h)
+        ))
+
+        # blue
+        b_size_send = int(b_size) & 0xFFFF
+        uart_write(make_packet(
+            HDR_BLUE,
+            bx if isinstance(bx, int) else 255,
+            by if isinstance(by, int) else 255,
+            (b_size_send >> 8) & 0xFF,
+            b_size_send & 0xFF,
+            clamp8(b_w),
+            clamp8(b_h)
+        ))
+
+        # wall
+        w_size_send = min(int(wsize), 0xFFFF)
+        uart_write(make_packet(
+            HDR_WALL,
+            wx if isinstance(wx, int) else 255,
+            wy if isinstance(wy, int) else 255,
+            (w_size_send >> 8) & 0xFF,
+            w_size_send & 0xFF,
+            0xFF,
+            0xFF
+        ))
