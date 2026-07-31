@@ -1,11 +1,10 @@
 #include <Arduino.h>
 #include <TFT_eSPI.h>
 
-// TFT_eSPI およびスプライトのインスタンス作成
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite spr = TFT_eSprite(&tft);
 
-// メニューの選択肢リスト（8項目）
+
 const char* menuItems[] = {
   "All",
   "Ball",
@@ -21,7 +20,7 @@ int currentIndex = 0; // 現在選択中の項目
 
 // 【自動移動タイマー設定】
 unsigned long lastMoveTime = 0;
-const unsigned long moveInterval = 300; // 600ミリ秒（0.6秒）ごとに自動で1マス進む
+const unsigned long moveInterval = 300; 
 
 // 画面表示・スクロール設定
 const int visibleItems = 5; // 画面内に表示する行数
@@ -32,7 +31,7 @@ void setup() {
   Serial.begin(115200);
   // 液晶の初期化
   tft.init();
-  tft.setRotation(1);
+  tft.setRotation(2);
   tft.fillScreen(TFT_BLACK);
 
   // 240x240の全画面スプライト（仮想キャンバス）をメモリ上に確保
@@ -55,16 +54,14 @@ void loop() {
   spr.setTextColor(TFT_CYAN, TFT_BLACK);
   spr.setTextSize(2);
   spr.setCursor(20, 12);
-  spr.print("AUTO MENU");
+  spr.print("Lorentz Menu");
   spr.drawFastHLine(0, 38, 240, TFT_DARKGREY); // 区切り線
 
-  // 3. スクロール位置（画面の先頭行）の計算
   int topIndex = 0;
   if (currentIndex >= visibleItems) {
     topIndex = currentIndex - visibleItems + 1;
   }
 
-  // 4. 見えている4行分をスプライトへ描画
   for (int i = 0; i < visibleItems; i++) {
     int itemIdx = topIndex + i;
     if (itemIdx < itemCount) {
@@ -72,12 +69,12 @@ void loop() {
       char buf[32];
 
       if (itemIdx == currentIndex) {
-        // 【選択中の行】黄色文字 ＋ カーソル「>」
-        spr.setTextColor(TFT_CYAN, TFT_BLACK);
+        spr.fillRect(15, y - 8 , 200, itemHeight, TFT_CYAN); 
+        spr.setTextColor(TFT_BLACK, TFT_CYAN);
         spr.setTextSize(3);
         spr.setCursor(20, y);
         
-        snprintf(buf, sizeof(buf), "> %s", menuItems[itemIdx]);
+        snprintf(buf, sizeof(buf), menuItems[itemIdx]);
         spr.print(buf);
       } else {
         // 【非選択の行】白文字
@@ -85,7 +82,7 @@ void loop() {
         spr.setTextSize(3);
         spr.setCursor(20, y);
         
-        snprintf(buf, sizeof(buf), "  %s", menuItems[itemIdx]);
+        snprintf(buf, sizeof(buf), menuItems[itemIdx]);
         spr.print(buf);
       }
     }
@@ -93,4 +90,6 @@ void loop() {
 
   // 5. 完成した全画面（1枚絵）を液晶へ一撃転送
   spr.pushSprite(0, 0);
+
+
 }
