@@ -27,6 +27,8 @@ const int visibleItems = 5; // 画面内に表示する行数
 const int itemHeight = 38;   // 1行の高さ
 const int startY = 50;       // メニュー開始Y座標
 
+int A = 0;
+
 void setup() {
   Serial.begin(115200);
   // 液晶の初期化
@@ -39,6 +41,20 @@ void setup() {
 }
 
 void loop() {
+  Setmode();
+  guruguru();
+  delay(10);
+}
+
+void guruguru() {
+  spr.fillSprite(TFT_BLACK);
+  spr.drawCircle(120, 120, 100, TFT_RED);
+  spr.drawLine(120, 120, 120 + 100 * cos(A * PI / 180), 120 + 100 * sin(A * PI / 180), TFT_GREEN);
+  A ++;
+  spr.pushSprite(0, 0);
+}
+
+void Setmode() {
   unsigned long currentMillis = millis();
 
   // タイマーで自動的に1マス下に移動（一番下に行ったらループ）
