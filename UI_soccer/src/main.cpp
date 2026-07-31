@@ -7,14 +7,14 @@ TFT_eSprite spr = TFT_eSprite(&tft);
 
 // メニューの選択肢リスト（8項目）
 const char* menuItems[] = {
-  "Gyro",
-  "A",
-  "Item C",
-  "Item D",
-  "Item E",
-  "Item F",
-  "Item G",
-  "Item H"
+  "All",
+  "Ball",
+  "Line",
+  "BackCamera",
+  "MainCamera",
+  "BLE",
+  "Encoder",
+  "Other"
 };
 const int itemCount = 8;
 int currentIndex = 0; // 現在選択中の項目
