@@ -1,353 +1,127 @@
-# main.py -- Yellow/Blue goals(最大) + Orange Ball(最大) + Wall(円形範囲内の最大)
-import sensor, image, time, math, pyb
-from pyb import UART
+#include <Arduino.h>
+#include <TFT_eSPI.h>
 
-# ---------- 設定 ----------
-STREAM_INTERVAL_MS = 0    
-PIXELS_THRESHOLD   = 20   # ゴール・ボールの find_blobs 閾値
-WALL_PIX_TH        = 15   # 黒(壁/線)の find_blobs 閾値
+TFT_eSPI tft = TFT_eSPI();
+TFT_eSprite spr = TFT_eSprite(&tft);
 
-# ミラーの中心座標（キャリブレーション用）
-MIRROR_CX = 200
-MIRROR_CY = 150
 
-# 黒を認識する円の半径
-WALL_RADIUS = 300
+const char* menuItems[] = {
+  "All",
+  "Ball",
+  "Line",
+  "BackCamera",
+  "MainCamera",
+  "BLE",
+  "Encoder",
+  "Other"
+};
+const int itemCount = 8;
+int currentIndex = 0; // 現在選択中の項目
 
-# ヘッダ
-HDR_GOALWALL = 0x02
-HDR_WALL     = 0x14
-HDR_YELLOW   = 0x18
-HDR_BLUE     = 0x19
-HDR_BALL     = 0x1A
+// 【自動移動タイマー設定】
+unsigned long lastMoveTime = 0;
+const unsigned long moveInterval = 300; 
 
-# UART (OpenMV -> MCU)
-uart = UART(3, 9600, timeout_char=1000)
-uart.init(9600, bits=8, parity=None, stop=1, timeout_char=1000)
+// 画面表示・スクロール設定
+const int visibleItems = 5; // 画面内に表示する行数
+const int itemHeight = 38;   // 1行の高さ
+const int startY = 50;       // メニュー開始Y座標
 
-# 色閾値（L A B）
-YellowThresholds = [(56, 89, 13, -5, 75, 15)]
-BlueThresholds   = [(85, 0, 68, -128, -48, -17)]
-BlackThresholds  = [(33, 0, 5, -34, -29, 66)]
-OrangeThresholds = [(61, 34, 10, 83, 5, 56)]  # 環境に合わせて再調整
+int A = 0;
 
-# ROI
-GoalRoi = (0, 0, 320, 320)
-WallRoi = (0, 0, 320, 320)
+void setup() {
+  Serial.begin(115200);
+  // 液晶の初期化
+  tft.init();
+  tft.setRotation(2);
+  tft.fillScreen(TFT_BLACK);
 
-# ---------- 初期化 ----------
-sensor.reset()
-sensor.set_pixformat(sensor.RGB565)
-try:
-    sensor.set_framesize(sensor.B320X320)
-except Exception:
-    sensor.set_framesize(sensor.QVGA)
+  // 240x240の全画面スプライト（仮想キャンバス）をメモリ上に確保
+  spr.createSprite(240, 240);
+}
 
-sensor.skip_frames(time=300)
+void loop() {
+  spr.fillSprite(TFT_BLACK);
+for(int i=0;i<36;i++){
+spr.drawCircle(cos(i * 10 * PI / 180) * 100 + 120, sin(i * 10 * PI / 180) * 100 + 120, 2, TFT_WHITE);
+}
+  spr.pushSprite(0, 0);
+}
 
-try:
-    sensor.set_auto_exposure(True)
-    sensor.set_auto_gain(True)
-    sensor.set_auto_whitebal(False)
-except Exception:
-    pass
+void zikoichi() {
+  //コート122*183 外側含め182*243
+  spr.fillSprite(TFT_BLACK);
+  spr.fillRect(0, 0, 240, 240, 0x4208);//背景色
+  spr.fillRect(59, 28, 122, 183, TFT_WHITE);//59-120-181,28-119-211
+  spr.fillRect(61, 30, 118, 179, TFT_DARKGREEN);//コートの外側の白い線
+  spr.drawLine(59, 119, 181, 119, TFT_DARKGREY);//センターライン
+  spr.fillCircle(120, 119, 30, TFT_DARKGREY);//センターサークル
+  spr.fillRect(90,18, 60, 10, TFT_BLUE);//青ゴール
+  spr.fillRect(90, 211, 60, 10, TFT_YELLOW);//黄色ゴール
+  spr.fillCircle(120, 180, 2, TFT_ORANGE);//ボール
+  spr.pushSprite(0, 0);
+}
 
-clock = time.clock()
-last_stream_ms = pyb.millis()
+void guruguru() {
+  spr.fillSprite(TFT_BLACK);
+  spr.drawCircle(120, 120, 100, TFT_RED);
+  spr.drawLine(120, 120, 120 + 100 * cos(A * PI / 180), 120 + 100 * sin(A * PI / 180), TFT_GREEN);
+  A ++;
+  spr.pushSprite(0, 0);
+}
 
-# ---------- helpers ----------
-def norm_coord_from_mirror(cx, cy, img):
-    if cx is None or cy is None:
-        return 255, 255
-    nx = int(((cx - MIRROR_CX) * 128 // (img.width() // 2)) + 128)
-    ny = int(((cy - MIRROR_CY) * 128 // (img.height() // 2)) + 128)
-    nx = max(0, min(254, nx))
-    ny = max(0, min(254, ny))
-    return nx, ny
+void Setmode() {
+  unsigned long currentMillis = millis();
 
-def clamp8(v):
-    if v is None or v < 0:
-        return 0
-    if v > 255:
-        return 255
-    return int(v)
+  // タイマーで自動的に1マス下に移動（一番下に行ったらループ）
+  if (currentMillis - lastMoveTime >= moveInterval) {
+    lastMoveTime = currentMillis;
+    currentIndex = (currentIndex + 1) % itemCount; 
+  }
 
-def make_packet(hdr, b1, b2, b3, b4, b5=0xFF, b6=0xFF):
-    return bytearray([
-        hdr & 0xFF,
-        b1 & 0xFF,
-        b2 & 0xFF,
-        b3 & 0xFF,
-        b4 & 0xFF,
-        b5 & 0xFF,
-        b6 & 0xFF
-    ])
+  // 1. 仮想キャンバス（裏画面）を消去
+  spr.fillSprite(TFT_BLACK);
 
-def uart_write(pkt):
-    try:
-        uart.write(pkt)
-    except Exception:
-        pass
+  // 2. 固定ヘッダーの描画
+  spr.setTextColor(TFT_CYAN, TFT_BLACK);
+  spr.setTextSize(2);
+  spr.setCursor(20, 12);
+  spr.print("Lorentz Menu");
+  spr.drawFastHLine(0, 38, 240, TFT_DARKGREY); // 区切り線
 
-def calc_angle_from_normalized(nx, ny):
-    if nx == 255 or ny == 255:
-        return None
-    dx = float(nx) - 128.0
-    dy = float(ny) - 128.0
-    rad = math.atan2(dy, dx) + math.pi / 2.0
-    deg = rad * 180.0 / math.pi
-    if deg < 0.0:
-        deg += 360.0
-    return deg % 360.0
+  int topIndex = 0;
+  if (currentIndex >= visibleItems) {
+    topIndex = currentIndex - visibleItems + 1;
+  }
 
-print("OpenMV: goals(Max) + Ball(Max) + Wall(Circle Area Max) streamer ready")
+  for (int i = 0; i < visibleItems; i++) {
+    int itemIdx = topIndex + i;
+    if (itemIdx < itemCount) {
+      int y = startY + (i * itemHeight);
+      char buf[32];
 
-while True:
-    clock.tick()
-    img = sensor.snapshot()
+      if (itemIdx == currentIndex) {
+        spr.fillRect(15, y - 8 , 200, itemHeight, TFT_CYAN); 
+        spr.setTextColor(TFT_BLACK, TFT_CYAN);
+        spr.setTextSize(3);
+        spr.setCursor(20, y);
+        
+        snprintf(buf, sizeof(buf), menuItems[itemIdx]);
+        spr.print(buf);
+      } else {
+        // 【非選択の行】白文字
+        spr.setTextColor(TFT_WHITE, TFT_BLACK);
+        spr.setTextSize(3);
+        spr.setCursor(20, y);
+        
+        snprintf(buf, sizeof(buf), menuItems[itemIdx]);
+        spr.print(buf);
+      }
+    }
+  }
 
-    # IDE接続時のみ: 黒探索用の境界円を赤色で描画
-    try:
-        img.draw_circle(MIRROR_CX, MIRROR_CY, WALL_RADIUS, color=(255, 0, 0))
-    except Exception:
-        pass
+  // 5. 完成した全画面（1枚絵）を液晶へ一撃転送
+  spr.pushSprite(0, 0);
 
-    # --- Orange Ball ---
-    o_best = 0
-    o_cx = None
-    o_cy = None
-    o_w = 0
-    o_h = 0
-    o_size = 0
 
-    for blob in img.find_blobs(
-        OrangeThresholds,
-        roi=GoalRoi,
-        pixels_threshold=PIXELS_THRESHOLD,
-        area_threshold=PIXELS_THRESHOLD,
-        merge=True,
-        margin=12
-    ):
-        bsize = blob.pixels()
-        if bsize > o_best:
-            o_best = bsize
-            o_size = bsize
-            o_w = blob.w()
-            o_h = blob.h()
-            o_cx = blob.cx()
-            o_cy = blob.cy()
-
-    if o_best > 0:
-        ox, oy = norm_coord_from_mirror(o_cx, o_cy, img)
-        try:
-            img.draw_circle(o_cx, o_cy, 4, color=(255, 165, 0))
-            img.draw_rectangle(o_cx - o_w // 2, o_cy - o_h // 2, o_w, o_h, color=(255, 165, 0))
-        except Exception:
-            pass
-    else:
-        ox = oy = 255
-        o_size = 0
-        o_w = 0
-        o_h = 0
-
-    # --- Yellow goal ---
-    y_best = 0
-    y_cx = None
-    y_cy = None
-    y_w = 0
-    y_h = 0
-    y_size = 0
-
-    for blob in img.find_blobs(
-        YellowThresholds,
-        roi=GoalRoi,
-        pixels_threshold=PIXELS_THRESHOLD,
-        area_threshold=PIXELS_THRESHOLD,
-        merge=True,
-        margin=6
-    ):
-        bsize = blob.pixels()
-        if bsize > y_best:
-            y_best = bsize
-            y_size = bsize
-            y_w = blob.w()
-            y_h = blob.h()
-            y_cx = blob.cx()
-            y_cy = blob.cy()
-
-    if y_best > 0:
-        yx, yy = norm_coord_from_mirror(y_cx, y_cy, img)
-        try:
-            img.draw_circle(y_cx, y_cy, 4, color=(255, 255, 255))
-            img.draw_rectangle(y_cx - y_w // 2, y_cy - y_h // 2, y_w, y_h, color=(255, 255, 255))
-        except Exception:
-            pass
-    else:
-        yx = yy = 255
-        y_size = 0
-        y_w = 0
-        y_h = 0
-
-    # --- Blue goal ---
-    b_best = 0
-    b_cx = None
-    b_cy = None
-    b_w = 0
-    b_h = 0
-    b_size = 0
-
-    for blob in img.find_blobs(
-        BlueThresholds,
-        roi=GoalRoi,
-        pixels_threshold=PIXELS_THRESHOLD,
-        area_threshold=PIXELS_THRESHOLD,
-        merge=True,
-        margin=6
-    ):
-        bsize = blob.pixels()
-        if bsize > b_best:
-            b_best = bsize
-            b_size = bsize
-            b_w = blob.w()
-            b_h = blob.h()
-            b_cx = blob.cx()
-            b_cy = blob.cy()
-
-    if b_best > 0:
-        bx, by = norm_coord_from_mirror(b_cx, b_cy, img)
-        try:
-            img.draw_circle(b_cx, b_cy, 4, color=(255, 255, 255))
-            img.draw_rectangle(b_cx - b_w // 2, b_cy - b_h // 2, b_w, b_h, color=(255, 255, 255))
-        except Exception:
-            pass
-    else:
-        bx = by = 255
-        b_size = 0
-        b_w = 0
-        b_h = 0
-
-    # --- 黒(壁) 円の中にある最大のものを取得 ---
-    w_best = 0
-    best_cx = None
-    best_cy = None
-    wsize = 0
-
-    for blob in img.find_blobs(
-        BlackThresholds,
-        roi=WallRoi,
-        pixels_threshold=WALL_PIX_TH,
-        area_threshold=WALL_PIX_TH,
-        merge=True,
-        margin=10
-    ):
-        dx = blob.cx() - MIRROR_CX
-        dy = blob.cy() - MIRROR_CY
-        if (dx * dx + dy * dy) <= (WALL_RADIUS * WALL_RADIUS):
-            bsize = blob.pixels()
-            if bsize > w_best:
-                w_best = bsize
-                wsize = bsize
-                best_cx = blob.cx()
-                best_cy = blob.cy()
-
-    if w_best > 0:
-        wx, wy = norm_coord_from_mirror(best_cx, best_cy, img)
-        try:
-            img.draw_cross(best_cx, best_cy, size=10, color=(255, 255, 255))
-        except Exception:
-            pass
-    else:
-        wx = wy = 255
-        wsize = 0
-
-    # --- デバッグ出力 ---
-    try:
-        ydeg = calc_angle_from_normalized(yx, yy)
-        bdeg = calc_angle_from_normalized(bx, by)
-        odeg = calc_angle_from_normalized(ox, oy)
-        wdeg = calc_angle_from_normalized(wx, wy)
-
-        if odeg is None:
-            print("Ball:N/A", end=" | ")
-        else:
-            print("Ball:{:.1f} Size:{}".format(odeg, o_size), end=" | ")
-
-        if ydeg is None:
-            print("Y:N/A", end=" | ")
-        else:
-            print("Y:{:.1f} Size:{}".format(ydeg, y_size), end=" | ")
-
-        if bdeg is None:
-            print("B:N/A", end=" | ")
-        else:
-            print("B:{:.1f} Size:{}".format(bdeg, b_size), end=" | ")
-
-        if wdeg is None:
-            print("Wall:N/A")
-        else:
-            print("Wall Angle:{:.1f} Size:{}".format(wdeg, wsize))
-    except Exception:
-        pass
-
-    # --- 送信処理 ---
-    now = pyb.millis()
-    do_send = False
-
-    if STREAM_INTERVAL_MS <= 0:
-        do_send = True
-    else:
-        if (now - last_stream_ms) >= STREAM_INTERVAL_MS:
-            last_stream_ms = now
-            do_send = True
-
-    if do_send:
-        # summary (互換性維持)
-        uart_write(make_packet(HDR_GOALWALL, yx, yy, bx, by, wx, wy))
-
-        # ball
-        o_size_send = int(o_size) & 0xFFFF
-        uart_write(make_packet(
-            HDR_BALL,
-            ox if isinstance(ox, int) else 255,
-            oy if isinstance(oy, int) else 255,
-            (o_size_send >> 8) & 0xFF,
-            o_size_send & 0xFF,
-            clamp8(o_w),
-            clamp8(o_h)
-        ))
-
-        # yellow
-        y_size_send = int(y_size) & 0xFFFF
-        uart_write(make_packet(
-            HDR_YELLOW,
-            yx if isinstance(yx, int) else 255,
-            yy if isinstance(yy, int) else 255,
-            (y_size_send >> 8) & 0xFF,
-            y_size_send & 0xFF,
-            clamp8(y_w),
-            clamp8(y_h)
-        ))
-
-        # blue
-        b_size_send = int(b_size) & 0xFFFF
-        uart_write(make_packet(
-            HDR_BLUE,
-            bx if isinstance(bx, int) else 255,
-            by if isinstance(by, int) else 255,
-            (b_size_send >> 8) & 0xFF,
-            b_size_send & 0xFF,
-            clamp8(b_w),
-            clamp8(b_h)
-        ))
-
-        # wall
-        w_size_send = min(int(wsize), 0xFFFF)
-        uart_write(make_packet(
-            HDR_WALL,
-            wx if isinstance(wx, int) else 255,
-            wy if isinstance(wy, int) else 255,
-            (w_size_send >> 8) & 0xFF,
-            w_size_send & 0xFF,
-            0xFF,
-            0xFF
-        ))
+}
