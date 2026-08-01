@@ -134,6 +134,6 @@ void loop(){
   delay(3000);
   guruguru();
   delay(3000);
-  setmode();
+  Setmode();
   delay(3000);
 }
