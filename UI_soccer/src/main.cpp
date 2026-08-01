@@ -40,10 +40,11 @@ void setup() {
   spr.createSprite(240, 240);
 }
 
-void loop() {
+
+void line() {
   spr.fillSprite(TFT_BLACK);
 for(int i=0;i<36;i++){
-spr.drawCircle(cos(i * 10 * PI / 180) * 100 + 120, sin(i * 10 * PI / 180) * 100 + 120, 2, TFT_WHITE);
+spr.drawCircle(cos(i * 10 * PI / 180) * 110 + 120, sin(i * 10 * PI / 180) * 110 + 120, 3, TFT_WHITE);
 }
   spr.pushSprite(0, 0);
 }
@@ -51,13 +52,13 @@ spr.drawCircle(cos(i * 10 * PI / 180) * 100 + 120, sin(i * 10 * PI / 180) * 100 
 void zikoichi() {
   //コート122*183 外側含め182*243
   spr.fillSprite(TFT_BLACK);
-  spr.fillRect(0, 0, 240, 240, 0x4208);//背景色
+  spr.fillRect(29, 0, 211, 240, );//背景色
   spr.fillRect(59, 28, 122, 183, TFT_WHITE);//59-120-181,28-119-211
   spr.fillRect(61, 30, 118, 179, TFT_DARKGREEN);//コートの外側の白い線
   spr.drawLine(59, 119, 181, 119, TFT_DARKGREY);//センターライン
-  spr.fillCircle(120, 119, 30, TFT_DARKGREY);//センターサークル
-  spr.fillRect(90,18, 60, 10, TFT_BLUE);//青ゴール
-  spr.fillRect(90, 211, 60, 10, TFT_YELLOW);//黄色ゴール
+  spr.drawCircle(120, 119, 30, TFT_DARKGREY);//センターサークル
+  spr.fillRect(90,18, 60, 15, TFT_BLUE);//青ゴール
+  spr.fillRect(90, 211, 60, 15, TFT_YELLOW);//黄色ゴール
   spr.fillCircle(120, 180, 2, TFT_ORANGE);//ボール
   spr.pushSprite(0, 0);
 }
@@ -124,4 +125,15 @@ void Setmode() {
   spr.pushSprite(0, 0);
 
 
+}
+
+void loop(){
+  line();
+  delay(3000);
+  zikoichi();
+  delay(3000);
+  guruguru();
+  delay(3000);
+  setmode();
+  delay(3000);
 }
