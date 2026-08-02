@@ -491,15 +491,29 @@ const unsigned char epd_bitmap_image[] PROGMEM = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
+void print(int x, int y, const char* str, int textSize, int color, int AColor) {
+  spr.setTextColor(color, AColor);
+  spr.setTextSize(textSize);
+  spr.setCursor(x, y);
+  spr.print(str);
+}
+
+void BLE(){
+  spr.fillSprite(TFT_BLACK);
+  spr.fillCircle(40,50,15,TFT_GREEN);
+  print(20, 12, "Success", 4, TFT_GREEN, TFT_BLACK);
+  spr.pushSprite(0, 0);
+}
 
 void ball(){
-spr.drawCircle(120,120,55,TFT_WHITE);
-spr.drawCircle(120,120,110,TFT_WHITE);
-spr.drawCircle(120,120,165,TFT_WHITE);
-spr.drawCircle(120,120,220,TFT_WHITE);
-spr.drawLine(120,10,120,230,TFT_WHITE);
-spr.drawLine(10,120,230,120,TFT_WHITE);
-spr.fillCircle(120,120,8,TFT_ORANGE);
+  spr.fillSprite(TFT_BLACK);
+spr.drawCircle(140,140,25,TFT_WHITE);
+spr.drawCircle(140,140,50,TFT_WHITE);
+spr.drawCircle(140,140,75,TFT_WHITE);
+spr.drawCircle(140,140,100,TFT_WHITE);
+spr.drawLine(40,140,240,140,TFT_WHITE);
+spr.fillCircle(140,140,8,TFT_ORANGE);
+spr.pushSprite(0, 0);
 }
 
 void drawBitmap(int x, int y, const unsigned char *bitmap, int w, int h, uint16_t color) {
@@ -517,15 +531,15 @@ void drawBitmap(int x, int y, const unsigned char *bitmap, int w, int h, uint16_
 }
 
 void line() {
-  int R = 115 - 1;
+  int R = 100 - 1;
   spr.fillSprite(TFT_BLACK);
-  spr.drawCircle(120,120,R,TFT_WHITE);
+  spr.drawCircle(140,140,R,TFT_WHITE);
   for(int i=0;i<36;i++){
-  spr.drawArc(120, 120, R, R - 9, i * 10, i * 10 + 10, TFT_RED, TFT_RED, false);
-  spr.drawLine(120,120,120 + R * cos((i * 10 + 90)* PI / 180), 120 + R * sin((i * 10 + 90) * PI / 180), TFT_WHITE);
+  spr.drawArc(140, 140, R, R - 9, i * 10, i * 10 + 10, TFT_RED, TFT_RED, false);
+  spr.drawLine(140,140,140 + R * cos((i * 10 + 90)* PI / 180), 140 + R * sin((i * 10 + 90) * PI / 180), TFT_WHITE);
   }
-  spr.drawCircle(120,120,100,TFT_WHITE);
-  spr.fillCircle(120,120,99,TFT_BLACK);
+  spr.drawCircle(140,140,100,TFT_WHITE);
+  spr.fillCircle(140,140,99,TFT_BLACK);
   spr.pushSprite(0, 0);
 }
 
@@ -574,15 +588,15 @@ void zikoichi() {
   spr.fillCircle(80, 184, 2, TFT_BLACK);  // 左下
   spr.fillCircle(160, 184, 2, TFT_BLACK); // 右下
   //ball
-  spr.fillCircle(120, 180, 3, TFT_ORANGE);
+  spr.fillCircle(140, 180, 3, TFT_ORANGE);
 
   spr.pushSprite(0, 0);
 }
 
 void guruguru() {
   spr.fillSprite(TFT_BLACK);
-  spr.drawCircle(120, 120, 100, TFT_RED);
-  spr.drawLine(120, 120, 120 + 100 * cos(A * PI / 180), 120 + 100 * sin(A * PI / 180), TFT_GREEN);
+  spr.drawCircle(140, 140, 100, TFT_RED);
+  spr.drawLine(140, 140, 140 + 100 * cos(A * PI / 180), 140 + 100 * sin(A * PI / 180), TFT_GREEN);
   A ++;
   spr.pushSprite(0, 0);
 }
@@ -590,21 +604,15 @@ void guruguru() {
 void Setmode() {
   unsigned long currentMillis = millis();
 
-  // タイマーで自動的に1マス下に移動（一番下に行ったらループ）
   if (currentMillis - lastMoveTime >= moveInterval) {
     lastMoveTime = currentMillis;
     currentIndex = (currentIndex + 1) % itemCount; 
   }
 
-  // 1. 仮想キャンバス（裏画面）を消去
   spr.fillSprite(TFT_BLACK);
 
-  // 2. 固定ヘッダーの描画
-  spr.setTextColor(TFT_CYAN, TFT_BLACK);
-  spr.setTextSize(2);
-  spr.setCursor(20, 12);
-  spr.print("Lorentz Menu");
-  spr.drawFastHLine(0, 38, 240, TFT_DARKGREY); // 区切り線
+  print(20,12, "Lorentz Menu", 2, TFT_CYAN, TFT_BLACK);
+  spr.drawFastHLine(0, 35, 240, TFT_DARKGREY); // 区切り線
 
   int topIndex = 0;
   if (currentIndex >= visibleItems) {
@@ -619,28 +627,14 @@ void Setmode() {
 
       if (itemIdx == currentIndex) {
         spr.fillRect(15, y - 8 , 200, itemHeight, TFT_CYAN); 
-        spr.setTextColor(TFT_BLACK, TFT_CYAN);
-        spr.setTextSize(3);
-        spr.setCursor(20, y);
-        
-        snprintf(buf, sizeof(buf), menuItems[itemIdx]);
-        spr.print(buf);
+        print(20, y, menuItems[itemIdx], 3, TFT_BLACK, TFT_CYAN);
       } else {
         // 【非選択の行】白文字
-        spr.setTextColor(TFT_WHITE, TFT_BLACK);
-        spr.setTextSize(3);
-        spr.setCursor(20, y);
-        
-        snprintf(buf, sizeof(buf), menuItems[itemIdx]);
-        spr.print(buf);
+        print(20, y, menuItems[itemIdx], 3, TFT_WHITE, TFT_BLACK);
       }
     }
   }
-
-  // 5. 完成した全画面（1枚絵）を液晶へ一撃転送
   spr.pushSprite(0, 0);
-
-
 }
 
 void loop(){
@@ -655,8 +649,9 @@ void loop(){
     Setmode();
   }
   delay(3000);
-  drawBitmap(0, 0, bitmap, 240, 240, TFT_CYAN);
+  drawBitmap(0, 0, epd_bitmap_image, 240, 240, TFT_CYAN);
   delay(3000);
   ball();
   delay(3000);
+  BLE();
 }
