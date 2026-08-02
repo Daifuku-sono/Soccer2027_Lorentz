@@ -492,6 +492,7 @@ const unsigned char epd_bitmap_image[] PROGMEM = {
 };
 
 void drawBitmap(int x, int y, const unsigned char *bitmap, int w, int h, uint16_t color) {
+  spr.fillSprite(TFT_BLACK);
   int byteWidth = (w + 7) / 8; // 1行あたりのバイト数を計算
   for (int j = 0; j < h; j++) {
     for (int i = 0; i < w; i++) {
@@ -501,17 +502,19 @@ void drawBitmap(int x, int y, const unsigned char *bitmap, int w, int h, uint16_
       }
     }
   }
+  spr.pushSprite(0, 0);
 }
 
 void line() {
-  int R = 115;
+  int R = 115 - 1;
   spr.fillSprite(TFT_BLACK);
   spr.drawCircle(120,120,R,TFT_WHITE);
   for(int i=0;i<36;i++){
   spr.drawArc(120, 120, R, R - 9, i * 10, i * 10 + 10, TFT_RED, TFT_RED, false);
-  spr.drawLine(120,120,120 + R * cos(i * 10 * PI / 180), 120 + R * sin(i * 10 * PI / 180), TFT_WHITE);
+  spr.drawLine(120,120,120 + R * cos((i * 10 + 90)* PI / 180), 120 + R * sin((i * 10 + 90) * PI / 180), TFT_WHITE);
   }
-  spr.drawCircle(120,120,105,TFT_WHITE);
+  spr.drawCircle(120,120,100,TFT_WHITE);
+  spr.fillCircle(120,120,99,TFT_BLACK);
   spr.pushSprite(0, 0);
 }
 
@@ -541,8 +544,8 @@ void zikoichi() {
   //横線
   spr.fillRect(95, 36, 50, 2, TFT_WHITE);   // 前方
   //角
-  spr.drawArc(95, 23, pr, pr - 2, 180, 270, TFT_WHITE, TFT_DARKGREEN, false);  // 左前
-  spr.drawArc(145, 23, pr, pr - 2, 90, 180, TFT_WHITE, TFT_DARKGREEN, false);  // 右前
+  spr.drawArc(95, 23, pr, pr - 2, 0, 90, TFT_WHITE, TFT_DARKGREEN, false);  // 左前
+  spr.drawArc(145, 23, pr, pr - 2, 270, 360, TFT_WHITE, TFT_DARKGREEN, false);  // 右前
 
   //--- 黄ゴール ---
   //縦線
@@ -551,8 +554,8 @@ void zikoichi() {
   //横線
   spr.fillRect(95, 202, 50, 2, TFT_WHITE);  // 前方
   //角
-  spr.drawArc(95, 217, pr, pr - 2, 270, 360, TFT_WHITE, TFT_DARKGREEN, false); // 左前
-  spr.drawArc(145, 217, pr, pr - 2, 0, 90, TFT_WHITE, TFT_DARKGREEN, false);   // 右前
+  spr.drawArc(95, 217, pr, pr - 2, 90, 180, TFT_WHITE, TFT_DARKGREEN, false); // 左前
+  spr.drawArc(145, 217, pr, pr - 2, 180, 270, TFT_WHITE, TFT_DARKGREEN, false);   // 右前
   //中立点
   spr.fillCircle(120, 120, 2, TFT_BLACK); // センター
   spr.fillCircle(80, 56, 2, TFT_BLACK);   // 左上 (端から45cm)
