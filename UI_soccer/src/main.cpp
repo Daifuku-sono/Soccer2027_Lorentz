@@ -491,6 +491,17 @@ const unsigned char epd_bitmap_image[] PROGMEM = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
+
+void ball(){
+spr.drawCircle(120,120,55,TFT_WHITE);
+spr.drawCircle(120,120,110,TFT_WHITE);
+spr.drawCircle(120,120,165,TFT_WHITE);
+spr.drawCircle(120,120,220,TFT_WHITE);
+spr.drawLine(120,10,120,230,TFT_WHITE);
+spr.drawLine(10,120,230,120,TFT_WHITE);
+spr.fillCircle(120,120,8,TFT_ORANGE);
+}
+
 void drawBitmap(int x, int y, const unsigned char *bitmap, int w, int h, uint16_t color) {
   spr.fillSprite(TFT_BLACK);
   int byteWidth = (w + 7) / 8; // 1行あたりのバイト数を計算
@@ -637,11 +648,15 @@ void loop(){
   delay(3000);
   zikoichi();
   delay(3000);
-  guruguru();
-  delay(3000);
-  Setmode();
+  for(int i = 0; i < 360; i++){
+    guruguru();
+  }
+  for(int i = 0; i < 60; i++){
+    Setmode();
+  }
   delay(3000);
   drawBitmap(0, 0, bitmap, 240, 240, TFT_CYAN);
   delay(3000);
-  
+  ball();
+  delay(3000);
 }
