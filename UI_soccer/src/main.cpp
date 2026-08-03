@@ -500,20 +500,21 @@ void print(int x, int y, const char* str, int textSize, int color, int AColor) {
 
 void BLE(){
   spr.fillSprite(TFT_BLACK);
-  spr.fillCircle(40,50,15,TFT_GREEN);
-  print(20, 12, "Success", 4, TFT_GREEN, TFT_BLACK);
+  spr.fillCircle(35,50,10,TFT_GREEN);
+  print(50, 38, "Success", 4, TFT_GREEN, TFT_BLACK);
   spr.pushSprite(0, 0);
 }
 
 void ball(){
   spr.fillSprite(TFT_BLACK);
-spr.drawCircle(140,140,25,TFT_WHITE);
-spr.drawCircle(140,140,50,TFT_WHITE);
-spr.drawCircle(140,140,75,TFT_WHITE);
-spr.drawCircle(140,140,100,TFT_WHITE);
-spr.drawLine(40,140,240,140,TFT_WHITE);
-spr.fillCircle(140,140,8,TFT_ORANGE);
-spr.pushSprite(0, 0);
+  spr.drawCircle(135,135,25,TFT_WHITE);
+  spr.drawCircle(135,135,50,TFT_WHITE);
+  spr.drawCircle(135,135,75,TFT_WHITE);
+  spr.drawCircle(135,135,100,TFT_WHITE);
+  spr.drawLine(35,135,235,135,TFT_WHITE);
+  spr.drawLine(135,35,135,235,TFT_WHITE);
+  spr.fillCircle(135,210,8,TFT_ORANGE);
+  spr.pushSprite(0, 0);
 }
 
 void drawBitmap(int x, int y, const unsigned char *bitmap, int w, int h, uint16_t color) {
@@ -530,19 +531,226 @@ void drawBitmap(int x, int y, const unsigned char *bitmap, int w, int h, uint16_
   spr.pushSprite(0, 0);
 }
 
+
 void line() {
-  int R = 100 - 1;
+  int lineA = 8;
+  int j[8] = {1, 2, 3, 10, 11, 30, 31, 32}; 
+  
+  int R = 100;
+  int Lbegin[3];
+  int Lend[3];
+  int lineRealcount = 0;
+
   spr.fillSprite(TFT_BLACK);
-  spr.drawCircle(140,140,R,TFT_WHITE);
-  for(int i=0;i<36;i++){
-  spr.drawArc(140, 140, R, R - 9, i * 10, i * 10 + 10, TFT_RED, TFT_RED, false);
-  spr.drawLine(140,140,140 + R * cos((i * 10 + 90)* PI / 180), 140 + R * sin((i * 10 + 90) * PI / 180), TFT_WHITE);
+  spr.drawCircle(135, 135, R, TFT_WHITE);
+  for (int i = 0; i < 36; i++) {
+    spr.drawLine(135, 135, 135 + R * cos((i * 10 + 90) * PI / 180), 135 + R * sin((i * 10 + 90) * PI / 180), TFT_WHITE);
   }
-  spr.drawCircle(140,140,100,TFT_WHITE);
-  spr.fillCircle(140,140,99,TFT_BLACK);
+
+  // 全センサの反応（オレンジの円弧）を描画
+  for (int a = 0; a < lineA; a++) {
+    int i = j[a];
+    spr.drawArc(135, 135, R - 1, R - 19, i * 10, i * 10 + 10, TFT_ORANGE, TFT_ORANGE, false);
+  }
+  
+  spr.drawLine(135, 135, 135 + R * cos(90 * PI / 180), 135 + R * sin(90 * PI / 180), TFT_WHITE);
+  spr.drawCircle(135, 135, 80, TFT_WHITE);
+  spr.fillCircle(135, 135, 79, TFT_BLACK);
+
+  // --- 1. センサのグループ分け ---
+  struct SensorGroup {
+    int startIdx;
+    int endIdx;
+    int count;
+  };
+  SensorGroup groups[36];
+  int groupCount = 0;
+
+  if (lineA > 0) {
+    groups[0].count = 1;
+    groups[0].startIdx = j[0];
+    groups[0].endIdx = j[0];
+    groupCount = 1;
+
+    for (int a = 1; a < lineA; a++) {
+      int diff = j[a] - j[a - 1];
+
+      if (diff == 1 || diff == 3) {
+        int g = groupCount - 1;
+        groups[g].count++;
+        groups[g].endIdx = j[a];
+      } else {
+        int g = groupCount;
+        groups[g].count = 1;
+        groups[g].startIdx = j[a];
+        groups[g].endIdx = j[a];
+        groupCount++;
+      }
+    }
+  }
+
+  // --- 2. 有効ライン(4つ以上)と無効グループ(4つ未満)の振り分け ---
+  SensorGroup validLines[10];
+  int validLinesCount = 0;
+
+  SensorGroup invalidGroups[36];
+  int invalidGroupsCount = 0;
+
+  for (int g = 0; g < groupCount; g++) {
+    if (groups[g].count >= 4) { 
+      validLines[validLinesCount++] = groups[g];
+      if (lineRealcount < 3) { 
+        Lbegin[lineRealcount] = groups[g].startIdx;
+        Lend[lineRealcount] = groups[g].endIdx;
+        lineRealcount++;
+      }
+    } else {
+      invalidGroups[invalidGroupsCount++] = groups[g];
+    }
+  }
+
+  // --- 3. 有効なラインの描画（緑色） ---
+  for (int v = 0; v < validLinesCount; v++) {
+    float ax = 135 + R * cos((validLines[v].startIdx * 10 + 90) * PI / 180);
+    float ay = 135 + R * sin((validLines[v].startIdx * 10 + 90) * PI / 180);
+    float bx = 135 + R * cos(((validLines[v].endIdx + 1) * 10 + 90) * PI / 180);
+    float by = 135 + R * sin(((validLines[v].endIdx + 1) * 10 + 90) * PI / 180);
+    
+    spr.drawWideLine(ax, ay, bx, by, 3, TFT_GREEN, TFT_GREEN);
+  }
+
+  // --- 4. 線の描画処理（有効ラインの有無で分岐） ---
+  if (validLinesCount > 0) {
+    // 【パターンA】有効ラインがある場合：無効グループから有効ラインの線分へ直角（垂線）に結ぶ
+    for (int i = 0; i < invalidGroupsCount; i++) {
+      float cx = 135 + R * cos((invalidGroups[i].startIdx * 10 + 90) * PI / 180);
+      float cy = 135 + R * sin((invalidGroups[i].startIdx * 10 + 90) * PI / 180);
+      float dx = 135 + R * cos(((invalidGroups[i].endIdx + 1) * 10 + 90) * PI / 180);
+      float dy = 135 + R * sin(((invalidGroups[i].endIdx + 1) * 10 + 90) * PI / 180);
+      
+      float midInvX = (cx + dx) / 2.0;
+      float midInvY = (cy + dy) / 2.0;
+      
+      float invCenterIdx = (invalidGroups[i].startIdx + invalidGroups[i].endIdx) / 2.0;
+
+      float minDistSq = 999999.0;
+      float bestFootX = 135;
+      float bestFootY = 135;
+      bool foundValidPair = false;
+
+      for (int v = 0; v < validLinesCount; v++) {
+        float ax = 135 + R * cos((validLines[v].startIdx * 10 + 90) * PI / 180);
+        float ay = 135 + R * sin((validLines[v].startIdx * 10 + 90) * PI / 180);
+        float bx = 135 + R * cos(((validLines[v].endIdx + 1) * 10 + 90) * PI / 180);
+        float by = 135 + R * sin(((validLines[v].endIdx + 1) * 10 + 90) * PI / 180);
+        
+        float valCenterIdx = (validLines[v].startIdx + validLines[v].endIdx) / 2.0;
+
+        float diffIdx = abs(valCenterIdx - invCenterIdx);
+        if (diffIdx > 18) diffIdx = 36 - diffIdx;
+        
+        // 直角関係（インデックス差 7〜11）
+        if (diffIdx >= 7 && diffIdx <= 11) {
+          // 線分 AB に対して無効グループの中心から垂線の足を計算
+          float lineVx = bx - ax;
+          float lineVy = by - ay;
+          float px = midInvX - ax;
+          float py = midInvY - ay;
+          
+          float lenSq = lineVx * lineVx + lineVy * lineVy;
+          float t = 0;
+          if (lenSq > 0.0001) {
+            t = (px * lineVx + py * lineVy) / lenSq;
+          }
+          if (t < 0.0) t = 0.0;
+          if (t > 1.0) t = 1.0;
+
+          float footX = ax + t * lineVx;
+          float footY = ay + t * lineVy;
+
+          float distSq = (midInvX - footX) * (midInvX - footX) + (midInvY - footY) * (midInvY - footY);
+          if (distSq < minDistSq) {
+            minDistSq = distSq;
+            bestFootX = footX;
+            bestFootY = footY;
+            foundValidPair = true;
+          }
+        }
+      }
+
+      if (foundValidPair) {
+        spr.drawWideLine(midInvX, midInvY, bestFootX, bestFootY, 2, TFT_CYAN, TFT_CYAN);
+      }
+    }
+  } else if (invalidGroupsCount >= 2) {
+    // 【パターンB】有効ラインが無く、無効グループが2つ以上ある場合
+    // 最も近いペアを1つ見つけてCYANで結び、残りはそれに垂直になるように引く
+    float minPairDist = 999999.0;
+    int bestA = 0, bestB = 1;
+
+    // 各無効グループの中点を計算しておく
+    float midX[36], midY[36];
+    for (int i = 0; i < invalidGroupsCount; i++) {
+      float cx = 135 + R * cos((invalidGroups[i].startIdx * 10 + 90) * PI / 180);
+      float cy = 135 + R * sin((invalidGroups[i].startIdx * 10 + 90) * PI / 180);
+      float dx = 135 + R * cos(((invalidGroups[i].endIdx + 1) * 10 + 90) * PI / 180);
+      float dy = 135 + R * sin(((invalidGroups[i].endIdx + 1) * 10 + 90) * PI / 180);
+      midX[i] = (cx + dx) / 2.0;
+      midY[i] = (cy + dy) / 2.0;
+    }
+
+    // 最も近いペアを探す
+    for (int i = 0; i < invalidGroupsCount; i++) {
+      for (int k = i + 1; k < invalidGroupsCount; k++) {
+        float d = (midX[i] - midX[k]) * (midX[i] - midX[k]) + (midY[i] - midY[k]) * (midY[i] - midY[k]);
+        if (d < minPairDist) {
+          minPairDist = d;
+          bestA = i;
+          bestB = k;
+        }
+      }
+    }
+
+    // 最も近いペアをCYANで結ぶ（これが基準線になる）
+    spr.drawWideLine(midX[bestA], midY[bestA], midX[bestB], midY[bestB], 2, TFT_CYAN, TFT_CYAN);
+
+    // 基準線の方向ベクトル
+    float baseVx = midX[bestB] - midX[bestA];
+    float baseVy = midY[bestB] - midY[bestA];
+
+    // 残りの無効グループは、この基準線に対して垂直になるように垂線を引く
+    for (int i = 0; i < invalidGroupsCount; i++) {
+      if (i != bestA && i != bestB) {
+        // 点 (midX[i], midY[i]) から 基準線（点bestAを通るベクトルbaseVの直線）への垂線の足を計算
+        float px = midX[i] - midX[bestA];
+        float py = midY[i] - midY[bestA];
+        float lenSq = baseVx * baseVx + baseVy * baseVy;
+        float t = 0;
+        if (lenSq > 0.0001) {
+          t = (px * baseVx + py * baseVy) / lenSq;
+        }
+        float footX = midX[bestA] + t * baseVx;
+        float footY = midY[bestA] + t * baseVy;
+
+        spr.drawWideLine(midX[i], midY[i], footX, footY, 2, TFT_CYAN, TFT_CYAN);
+      }
+    }
+  }
+
+  // --- 5. テキスト情報の描画 ---
+  if (lineRealcount > 0) {
+    spr.setCursor(84, 100);
+    spr.setTextSize(3);
+    spr.setTextColor(TFT_WHITE, TFT_BLACK);
+    spr.print(Lbegin[lineRealcount - 1]);
+    spr.print("~");
+    spr.print(Lend[lineRealcount - 1]);
+    spr.print(":");
+    spr.print(lineRealcount);
+  }
+
   spr.pushSprite(0, 0);
 }
-
 void zikoichi() {
 
   spr.fillSprite(TFT_BLACK);
@@ -555,7 +763,7 @@ void zikoichi() {
   //白線
   spr.fillRect(41, 11, 158, 219, TFT_WHITE);
   spr.fillRect(43, 13, 154, 215, TFT_DARKGREEN); 
-　//センターライン
+  //センターライン
   spr.fillRect(41, 119, 158, 2, TFT_WHITE); 
   spr.drawCircle(120, 120, 30, TFT_WHITE);
   spr.drawCircle(120, 120, 29, TFT_WHITE);  
@@ -639,19 +847,5 @@ void Setmode() {
 
 void loop(){
   line();
-  delay(3000);
-  zikoichi();
-  delay(3000);
-  for(int i = 0; i < 360; i++){
-    guruguru();
-  }
-  for(int i = 0; i < 60; i++){
-    Setmode();
-  }
-  delay(3000);
-  drawBitmap(0, 0, epd_bitmap_image, 240, 240, TFT_CYAN);
-  delay(3000);
-  ball();
-  delay(3000);
-  BLE();
+  delay(5000);
 }
