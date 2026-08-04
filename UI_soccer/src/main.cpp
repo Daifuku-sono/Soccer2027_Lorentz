@@ -545,8 +545,13 @@ void drawRotatedRectangle(int16_t cx, int16_t cy, int16_t w, int16_t h, float an
 }
 
 void Maincam()
-{
-  drawRotatedRectangle(100,100,100,100,30,TFT_WHITE);
+{ 
+  float Yx,Yy,Yw,Yh,Ya;
+  float Bx,By,Bw,Bh,Ba;
+  spr.fillCircle(135,135,100,TFT_DARKGREY);
+  drawRotatedRectangle(Yx,Yy,Yx + Yw * cos (Ya * PI / 180), Yy + Yh * sin(Ya * PI / 180),Ya,TFT_WHITE);
+  drawRotatedRectangle(Bx,By,Bx + Bw * cos (Ba * PI / 180), By + Bh * sin(Ba * PI / 180),Ba,TFT_WHITE);
+  
 }
 void drawBitmap(int x, int y, const unsigned char *bitmap, int w, int h, uint16_t color)
 {
@@ -566,7 +571,6 @@ void drawBitmap(int x, int y, const unsigned char *bitmap, int w, int h, uint16_
   spr.pushSprite(0, 0);
 }
 
-float calcX, calcY;
 void line()
 {
   int lineA = 8;
@@ -822,6 +826,7 @@ void line()
   spr.pushSprite(0, 0);
 }
 
+float calcX, calcY;
 void zikoichi()
 {
   float yellowgoal = 120;
@@ -936,7 +941,13 @@ void zikoichi()
 void Maincamdebug()
 {
   spr.fillSprite(TFT_BLACK);
-  spr.setTextColor(TFT_YELLOW, TFT_BLACK);
+  spr.setTextColor(TFT_WHITE, TFT_BLACK);
+  spr.setCursor(0, 0);
+  spr.print("X:");
+  spr.print(String(calcX, 1));
+  spr.print(" Y:");
+  spr.print(String(calcY, 1));
+  spr.setTextColor(TFT_WHITE, TFT_BLACK);
   spr.setCursor(0, 0);
   spr.print("X:");
   spr.print(String(calcX, 1));
