@@ -522,41 +522,83 @@ void ball()
 void drawRotatedRectangle(int16_t cx, int16_t cy, int16_t w, int16_t h, float angle, uint16_t color)
 {
   spr.fillSprite(TFT_BLACK);
-  int max_len = sqrt(w * w + h * h) + 4;
-  TFT_eSprite rotSpr = TFT_eSprite(&tft); // または spr.getTFT() に合わせたインスタンス
-  rotSpr.createSprite(max_len, max_len);
-
-  // 2. スプライト内を黒（または背景色・透明色）で塗りつぶす
-  rotSpr.fillSprite(TFT_BLACK);
-
-  // 3. スプライトの中心に、通常の長方形を描く
-  int local_x = (max_len - w) / 2;
-  int local_y = (max_len - h) / 2;
-  rotSpr.fillRect(local_x, local_y, w, h, color);
-
-  // 4. 回転の中心（ピボット）をスプライトの中心に設定する
-  rotSpr.setPivot(max_len / 2, max_len / 2);
-
-  // 5. 画面上の指定座標 (cx, cy) に、指定した角度（度）で回転させて貼り付ける
-  // ※ 第2引数の 0 は「黒色を透過色（透明）にする」という意味です
-  rotSpr.pushRotated(&spr, angle, TFT_BLACK);
-
-  // 6. メモリを解放する
-  rotSpr.deleteSprite();
+  int x0 = cx;
+  int y0 = cy;
+  int x1 = cx + w * cos(angle * PI / 180);
+  int y1 = cy + w * sin(angle * PI / 180);
+  int x2 = cx + h * cos((angle - 90) * PI / 180);
+  int y2 = cy + h * sin((angle - 90) * PI / 180);
+  int x3 = x1 + h * cos((angle - 90) * PI / 180);
+  int y3 = y1 + h * sin((angle - 90) * PI / 180);
+  spr.fillTriangle(x0, y0, x1, y1, x2, y2, color);
+  spr.fillTriangle(x1, y1, x2, y2, x3, y3, color);
+  spr.pushSprite(0, 0);
 }
 
 float Yx, Yy, Yw, Yh, Ya;
 float Bx, By, Bw, Bh, Ba;
-void Maincam()
-{
-  Yx = 120;
+float Ox, Oy, Ow, Oa;
+
+void camerakeisan() {
+    Yx = 120;
   Yy = 180;
   Yw = 80;
   Yh = 30;
   Ya = 30;
+}
+
+void Maincam()
+{
+  kamerakeisan();
+
   spr.fillCircle(135, 135, 100, TFT_DARKGREY);
-  drawRotatedRectangle(Yx, Yy, Yx + Yw * cos(Ya * PI / 180), Yy + Yh * sin(Ya * PI / 180), Ya, TFT_YELLOW);
-  // drawRotatedRectangle(Bx, By, Bx + Bw * cos(Ba * PI / 180), By + Bh * sin(Ba * PI / 180), Ba, TFT_WHITE);
+
+  drawRotatedRectangle(Yx, Yy, Yw, Yh, Ya, TFT_GOLD);
+  // drawRotatedRectangle(Bx,By,Bw,Bh,Ba,TFT_GOLD);
+  drawfillCircle(Ox, Oy, Ow, TFT_ORANGE)
+      spr.pushSprite(0, 0);
+}
+
+void Maincamdebug()
+{
+  kamerakeisan();
+  spr.fillSprite(TFT_BLACK);
+  spr.setTextColor(TFT_WHITE, TFT_BLACK);
+  print(0, 0, "Main Camera", 3, TFT_CYAN, TFT_BLACK);
+  spr.drawLine(0, 35, 240, 35, TFT_CYAN);
+  spr.setTextColor(TFT_WHITE);
+  spr.setTextize(2);
+  spr.setCursor(10, 50);
+  spr.print("YellowGoal: ");
+  spr.print(Yx);
+  spr.print(" : ");
+  spr.print(Yy);
+  spr.print(" : ");
+  spr.print(Yw);
+  spr.print(" : ");
+  spr.print(Yh);
+  spr.print(" : ");
+  spr.print(Ya);
+  spr.setCursor(10, 100);
+  spr.print("BlueGoal: ");
+  spr.print(Bx);
+  spr.print(" : ");
+  spr.print(By);
+  spr.print(" : ");
+  spr.print(Bw);
+  spr.print(" : ");
+  spr.print(Bh);
+  spr.print(" : ");
+  spr.print(Ba);
+  spr.setCursor(10, 150);
+  spr.print("Ball: ");
+  spr.print(Ox);
+  spr.print(" : ");
+  spr.print(Oy);
+  spr.print(" : ");
+  spr.print(Ow);
+  spr.print(" : ");
+  spr.print(Oa);
   spr.pushSprite(0, 0);
 }
 
@@ -577,6 +619,7 @@ void drawBitmap(int x, int y, const unsigned char *bitmap, int w, int h, uint16_
   }
   spr.pushSprite(0, 0);
 }
+
 struct SensorGroup
 {
   int startIdx;
@@ -586,7 +629,7 @@ struct SensorGroup
 
 // センサ情報
 int lineA = 6;
-int j[36] = {1, 2,3,4, 22, 23}; 
+int j[36] = {1, 2, 3, 4, 22, 23};
 int R = 100;
 int targetA = 0;
 
@@ -611,7 +654,7 @@ void linekeisan()
   SensorGroup groups[36];
   int groupCount = 0;
 
-  // グループ分け 
+  // グループ分け
   if (lineA > 0)
   {
     groups[0].count = 1;
@@ -864,10 +907,9 @@ void linekeisan()
   }
 }
 
-
 void line()
 {
-  //計算
+  // 計算
   linekeisan();
 
   // 正方形エリア
@@ -927,7 +969,7 @@ void line()
   spr.fillSprite(TFT_BLACK);
   spr.drawCircle(135, 135, R, TFT_WHITE);
   print(0, 0, "Line", 3, TFT_CYAN, TFT_BLACK);
-  
+
   for (int i = 0; i < 36; i++)
   {
     spr.drawLine(135, 135, 135 + R * cos((i * 10 + 90) * PI / 180), 135 + R * sin((i * 10 + 90) * PI / 180), TFT_WHITE);
@@ -1204,14 +1246,14 @@ void linedebug()
   spr.setTextColor(TFT_WHITE, TFT_BLACK);
   spr.setCursor(10, 50);
   spr.print("Active Sensors:");
-  
+
   spr.setCursor(10, 75);
   for (int a = 0; a < lineA; a++)
   {
     spr.print(j[a]);
     spr.print(" ");
   }
-  spr.drawLine(0,100,240,100,TFT_CYAN);
+  spr.drawLine(0, 100, 240, 100, TFT_CYAN);
   spr.setTextSize(3);
   for (int i = 0; i < lineRealcount; i++)
   {
@@ -1240,8 +1282,8 @@ void zikoichi()
   spr.fillRect(29, 0, 182, 240, TFT_DARKGREEN);
 
   // goal
-  spr.fillRect(90, 1, 60, 10, TFT_BLUE);     // 上(青)
-  spr.fillRect(90, 229, 60, 10, TFT_YELLOW); // 下(黄)
+  spr.fillRect(90, 1, 60, 10, TFT_BLUE);   // 上(青)
+  spr.fillRect(90, 229, 60, 10, TFT_GOLD); // 下(黄)
 
   // 白線
   spr.fillRect(41, 11, 158, 219, TFT_WHITE);
@@ -1341,7 +1383,7 @@ void zikoichi()
   spr.pushSprite(0, 0);
 }
 
-void Maincamdebug()
+void Alldebug()
 {
   spr.fillSprite(TFT_BLACK);
   spr.setTextColor(TFT_WHITE, TFT_BLACK);
@@ -1453,7 +1495,7 @@ void setmode()
     spr.fillSprite(TFT_BLACK);
 
     print(20, 12, "Lorentz Menu", 2, TFT_CYAN, TFT_BLACK);
-    spr.drawFastHLine(0, 35, 240, TFT_DARKGREY); // 区切り線
+    spr.drawFastHLine(0, 35, 240, TFT_CYAN); // 区切り線
 
     // --- スクロール位置（topIndex）の滑らかな追従管理 ---
     static int topIndex = 0;
@@ -1582,7 +1624,7 @@ void setmode()
       }
       if (mode == 3)
       {
-        Maincamdebug();
+        Alldebug();
       }
     }
   }
