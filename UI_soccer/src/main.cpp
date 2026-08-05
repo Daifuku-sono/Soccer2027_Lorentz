@@ -6,6 +6,7 @@ TFT_eSprite spr = TFT_eSprite(&tft);
 
 const char *menuItems[] = {
     "All",
+    "Where",
     "Gyro",
     "Ball",
     "Line",
@@ -13,10 +14,11 @@ const char *menuItems[] = {
     "BackCamera",
     "BLE",
     "Encoder",
+    "BallCheck",
     "Other",
     "Logo"};
 
-const int itemCount = 10;
+const int itemCount = 12;
 int currentIndex = 0; // 現在選択中の項目
 
 unsigned long lastMoveTime = 0;
@@ -494,6 +496,7 @@ void gyrokeisan()
 
 void gyro()
 {
+  gyrokeisan();
   float angle = gyroangle;
   spr.fillSprite(TFT_BLACK);
   spr.drawCircle(135, 135, 100, TFT_WHITE);
@@ -519,9 +522,13 @@ void BLE()
   print(50, 38, "Success", 4, TFT_GREEN, TFT_BLACK);
   spr.pushSprite(0, 0);
 }
+
 void ballkeisan()
 {
+  ballangle = 100;
+  balldistance = 100;
 }
+
 void ball()
 {
   ballkeisan();
@@ -655,7 +662,7 @@ int targetA = 0;
 int lineRealcount = 0;
 int Lbegin[3] = {0};
 int Lend[3] = {0};
-
+float lineangle; // 進む方向
 // 計算途中で保持するグループ情報
 SensorGroup validLines[10];
 int validLinesCount = 0;
@@ -1253,6 +1260,9 @@ void line()
   spr.pushSprite(0, 0);
 }
 
+void linethreshold()
+{
+}
 void linedebug()
 {
   // 計算
@@ -1478,33 +1488,61 @@ uint16_t getAutoRainbowColor()
   return (r << 11) | (g << 5) | b;
 }
 
+bool Upbutton, Downbutton, Rightbutton, Leftbutton;
+void button()
+{
+  Upbutton = digitalRead(0);
+  Downbutton = digitalRead(2);
+  Rightbutton = digitalRead(1);
+  Leftbutton = digitalRead(3);
+}
+void all()
+{
+  float Gangle, Bangle, Langle;
+  gyrokeisan();
+  ballkeisan();
+  linekeisan();
+  Gangle = gyroangle;
+  Bangle = ballangle;
+  Langle = lineangle;
+  spr.drawLine(135, 135, 135 + 100 * cos((Gangle + 90) * PI / 180), 135 + 100 * sin((Gangle + 90) * PI / 180), TFT_CYAN);
+  spr.drawLine(135, 135, 135 + 100 * cos((Bangle + 90) * PI / 180), 135 + 100 * sin((Bangle + 90) * PI / 180), TFT_ORANGE);
+  spr.drawLine(135, 135, 135 + 100 * cos((Langle + 90) * PI / 180), 135 + 100 * sin((Langle + 90) * PI / 180), TFT_GREEN);
+
+  spr.drawCircle(135, 135, 100, TFT_WHITE);
+  spr.pushSprite(0,0);
+}
 void setmode()
 {
   static int page = 0;
   static int mode = 0;
-  int maxpage[itemCount] = {2, 2, 2, 3, 3, 2, 2, 2, 2, 2};
-  for (int i = 0; i < itemCount; i++)
-  {
-    // Serial.println(maxpage[i]);
-  }
+  int maxpage[itemCount] = {2, 3, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2};
+  
+  button(); // 最新のボタン状態を取得
+
   if (page == 0)
   {
     // 上ボタン
-    if (digitalRead(0) == HIGH)
+    if (Upbutton == HIGH)
     {
       delay(50);
-      while (digitalRead(0) == HIGH)
+      while (Upbutton == HIGH)
       {
+        button(); // ループ内で状態を更新して無限ループを防止
+        delay(1);
       }
       delay(50);
       currentIndex = (currentIndex + 1) % itemCount;
     }
+    
     // 下ボタン（ピン2）
-    if (digitalRead(2) == HIGH)
+    if (Downbutton == HIGH)
     {
       delay(50);
-      while (digitalRead(2) == HIGH)
+      while (Downbutton == HIGH)
       {
+        button();
+        delay(1);
       }
       delay(50);
       currentIndex = (currentIndex - 1 + itemCount) % itemCount;
@@ -1557,102 +1595,110 @@ void setmode()
     }
 
     // 決定ボタン（ピン1）でページを切り替える
-    if (digitalRead(1) == HIGH)
+    if (Rightbutton == HIGH)
     {
       delay(50);
-      while (digitalRead(1) == HIGH)
+      while (Rightbutton == HIGH)
       {
+        button();
+        delay(1);
       }
       delay(50);
 
-      page = 1;
+      page++;
       mode = currentIndex; // 選択しているインデックスをそのままモード番号にする
+    }
+    
+    if (Leftbutton == HIGH)
+    {
+      delay(50);
+      while (Leftbutton == HIGH)
+      {
+        button();
+        delay(1);
+      }
+      delay(50);
+
+      mode = currentIndex; // 先にモードを更新
+      page = maxpage[mode] - 1; // 0始まりのため、最大ページ - 1 をセットする
     }
   }
   else if (page == 1)
   {
-    if (digitalRead(1) == HIGH)
+    if (Rightbutton == HIGH)
     {
       delay(50);
-      while (digitalRead(1) == HIGH)
+      while (Rightbutton == HIGH)
       {
+        button();
+        delay(1);
       }
       delay(50);
       page++;
       page = page % maxpage[mode];
+    }
+    else if (Leftbutton == HIGH)
+    {
+      delay(50);
+      while (Leftbutton == HIGH)
+      {
+        button();
+        delay(1);
+      }
+      delay(50);
+      page--;
+      page = (page + maxpage[mode]) % maxpage[mode];
     }
     else
     {
       // 各モードの実行（mode 番号で自動振り分け）
-      if (mode == 0)
-      {
-        zikoichi();
+      if (mode == 0) { all(); }
+      else if (mode == 1) { zikoichi(); }
+      else if (mode == 2) { gyro(); }
+      else if (mode == 3) { ball(); }
+      else if (mode == 4) { line(); }
+      else if (mode == 5) { Maincam(); }
+      else if (mode >= 6 && mode <= 11) { 
+        // 6〜11は同じ処理なのでまとめられます
+        drawBitmap(0, 0, epd_bitmap_image, 240, 240, getAutoRainbowColor()); 
       }
-      else if (mode == 1)
-      {
-        gyro();
-      }
-      else if (mode == 2)
-      {
-        ball();
-      }
-      else if (mode == 3)
-      {
-        line();
-      }
-      else if (mode == 4)
-      {
-        Maincam();
-      }
-      else if (mode == 5)
-      {
-        drawBitmap(0, 0, epd_bitmap_image, 240, 240, getAutoRainbowColor());
-      }
-      else if (mode == 6)
-      {
-        BLE();
-      }
-      else if (mode == 7)
-      {
-        drawBitmap(0, 0, epd_bitmap_image, 240, 240, getAutoRainbowColor());
-      }
-      else if (mode == 8)
-      {
-        drawBitmap(0, 0, epd_bitmap_image, 240, 240, getAutoRainbowColor());
-      }
-      else if (mode == 9)
-      {
-        drawBitmap(0, 0, epd_bitmap_image, 240, 240, getAutoRainbowColor());
-      }
+      else if (mode == 7) { BLE(); } // ※上のまとめ条件と被る場合は適宜調整してください
     }
   }
   else if (page == 2)
   {
-    if (digitalRead(1) == HIGH)
+    if (Rightbutton == HIGH)
     {
       delay(50);
-      while (digitalRead(1) == HIGH)
+      while (Rightbutton == HIGH)
       {
+        button();
+        delay(1);
       }
       delay(50);
       page++;
       page = page % maxpage[mode];
     }
+    else if (Leftbutton == HIGH)
+    {
+      delay(50);
+      while (Leftbutton == HIGH)
+      {
+        button();
+        delay(1);
+      }
+      delay(50);
+      page--;
+      page = (page + maxpage[mode]) % maxpage[mode];
+    }
     else
     {
-      if (mode == 0)
-      {
-        zikoichidebug();
-      }
-      if (mode == 2)
-      {
-        linedebug();
-      }
+      if (mode == 1) { zikoichidebug(); }
+      else if (mode == 4) { linedebug(); }
     }
   }
   spr.pushSprite(0, 0);
 }
-
 void setup()
 {
   Serial.begin(115200);
@@ -1663,8 +1709,6 @@ void setup()
 
   // 240x240の全画面スプライト（仮想キャンバス）をメモリ上に確保
   spr.createSprite(240, 240);
-  zikoichi();
-  gyrokeisan();
 
   tft.fillScreen(TFT_BLACK);
 }
