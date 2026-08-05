@@ -6,6 +6,7 @@ TFT_eSprite spr = TFT_eSprite(&tft);
 
 const char *menuItems[] = {
     "All",
+    "Gyro",
     "Ball",
     "Line",
     "MainCamera",
@@ -15,7 +16,7 @@ const char *menuItems[] = {
     "Other",
     "Logo"};
 
-const int itemCount = 9;
+const int itemCount = 10;
 int currentIndex = 0; // 現在選択中の項目
 
 unsigned long lastMoveTime = 0;
@@ -25,18 +26,6 @@ const int visibleItems = 5; // 画面内に表示する行数
 const int itemHeight = 38;  // 1行の高さ
 const int startY = 50;      // メニュー開始Y座標
 int A = 0;
-
-void setup()
-{
-  Serial.begin(115200);
-  // 液晶の初期化
-  tft.init();
-  tft.setRotation(4);
-  tft.fillScreen(TFT_BLACK);
-
-  // 240x240の全画面スプライト（仮想キャンバス）をメモリ上に確保
-  spr.createSprite(240, 240);
-}
 
 const unsigned char epd_bitmap_image[] PROGMEM = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -497,17 +486,45 @@ void print(int x, int y, const char *str, int textSize, int color, int AColor)
   spr.setCursor(x, y);
   spr.print(str);
 }
+float gyroangle = 0;
+void gyrokeisan()
+{
+  gyroangle = 100.0;
+}
+
+void gyro()
+{
+  float angle = gyroangle;
+  spr.fillSprite(TFT_BLACK);
+  spr.drawCircle(135, 135, 100, TFT_WHITE);
+  spr.drawLine(135, 135, 135 + 100 * cos((angle + 90) * PI / 180), 135 + 100 * sin((angle + 90) * PI / 180), TFT_WHITE);
+  print(80, 120, "Angle", 3, TFT_WHITE, TFT_BLACK);
+  spr.print(angle);
+  spr.pushSprite(0, 0);
+}
+
+float ballangle = 0;
+float balldistance = 0;
+void BLEcheck()
+{
+  ballangle = 100;
+  balldistance = 100;
+}
 
 void BLE()
 {
+  BLEcheck();
   spr.fillSprite(TFT_BLACK);
   spr.fillCircle(35, 50, 10, TFT_GREEN);
   print(50, 38, "Success", 4, TFT_GREEN, TFT_BLACK);
   spr.pushSprite(0, 0);
 }
-
+void ballkeisan()
+{
+}
 void ball()
 {
+  ballkeisan();
   spr.fillSprite(TFT_BLACK);
   spr.drawCircle(135, 135, 25, TFT_WHITE);
   spr.drawCircle(135, 135, 50, TFT_WHITE);
@@ -515,7 +532,7 @@ void ball()
   spr.drawCircle(135, 135, 100, TFT_WHITE);
   spr.drawLine(35, 135, 235, 135, TFT_WHITE);
   spr.drawLine(135, 35, 135, 235, TFT_WHITE);
-  spr.fillCircle(135, 210, 8, TFT_ORANGE);
+  spr.fillCircle(135 + cos((ballangle + 90) * PI / 180), 135 + sin((ballangle + 90) * PI / 180), 8, TFT_ORANGE);
   spr.pushSprite(0, 0);
 }
 
@@ -539,8 +556,9 @@ float Yx, Yy, Yw, Yh, Ya;
 float Bx, By, Bw, Bh, Ba;
 float Ox, Oy, Ow, Oa;
 
-void camerakeisan() {
-    Yx = 120;
+void camerakeisan()
+{
+  Yx = 120;
   Yy = 180;
   Yw = 80;
   Yh = 30;
@@ -549,25 +567,25 @@ void camerakeisan() {
 
 void Maincam()
 {
-  kamerakeisan();
+  camerakeisan();
 
   spr.fillCircle(135, 135, 100, TFT_DARKGREY);
 
   drawRotatedRectangle(Yx, Yy, Yw, Yh, Ya, TFT_GOLD);
-  // drawRotatedRectangle(Bx,By,Bw,Bh,Ba,TFT_GOLD);
-  drawfillCircle(Ox, Oy, Ow, TFT_ORANGE)
-      spr.pushSprite(0, 0);
+  // drawRotatedRectangle(Bx,By,Bw,Bh,Ba,TFT_BLUE);
+  spr.fillCircle(Ox, Oy, Ow, TFT_ORANGE);
+  spr.pushSprite(0, 0);
 }
 
 void Maincamdebug()
 {
-  kamerakeisan();
+  camerakeisan();
   spr.fillSprite(TFT_BLACK);
   spr.setTextColor(TFT_WHITE, TFT_BLACK);
   print(0, 0, "Main Camera", 3, TFT_CYAN, TFT_BLACK);
   spr.drawLine(0, 35, 240, 35, TFT_CYAN);
   spr.setTextColor(TFT_WHITE);
-  spr.setTextize(2);
+  spr.setTextSize(2);
   spr.setCursor(10, 50);
   spr.print("YellowGoal: ");
   spr.print(Yx);
@@ -1383,7 +1401,7 @@ void zikoichi()
   spr.pushSprite(0, 0);
 }
 
-void Alldebug()
+void zikoichidebug()
 {
   spr.fillSprite(TFT_BLACK);
   spr.setTextColor(TFT_WHITE, TFT_BLACK);
@@ -1464,7 +1482,7 @@ void setmode()
 {
   static int page = 0;
   static int mode = 0;
-  int maxpage[itemCount] = {2, 2, 3, 3, 2, 2, 2, 2, 2};
+  int maxpage[itemCount] = {2, 2, 2, 3, 3, 2, 2, 2, 2, 2};
   for (int i = 0; i < itemCount; i++)
   {
     // Serial.println(maxpage[i]);
@@ -1572,33 +1590,37 @@ void setmode()
       }
       else if (mode == 1)
       {
-        ball();
+        gyro();
       }
       else if (mode == 2)
       {
-        line();
+        ball();
       }
       else if (mode == 3)
       {
-        Maincam();
+        line();
       }
       else if (mode == 4)
       {
-        drawBitmap(0, 0, epd_bitmap_image, 240, 240, getAutoRainbowColor());
+        Maincam();
       }
       else if (mode == 5)
       {
-        BLE();
+        drawBitmap(0, 0, epd_bitmap_image, 240, 240, getAutoRainbowColor());
       }
       else if (mode == 6)
       {
-        drawBitmap(0, 0, epd_bitmap_image, 240, 240, getAutoRainbowColor());
+        BLE();
       }
       else if (mode == 7)
       {
         drawBitmap(0, 0, epd_bitmap_image, 240, 240, getAutoRainbowColor());
       }
       else if (mode == 8)
+      {
+        drawBitmap(0, 0, epd_bitmap_image, 240, 240, getAutoRainbowColor());
+      }
+      else if (mode == 9)
       {
         drawBitmap(0, 0, epd_bitmap_image, 240, 240, getAutoRainbowColor());
       }
@@ -1618,17 +1640,33 @@ void setmode()
     }
     else
     {
+      if (mode == 0)
+      {
+        zikoichidebug();
+      }
       if (mode == 2)
       {
         linedebug();
       }
-      if (mode == 3)
-      {
-        Alldebug();
-      }
     }
   }
   spr.pushSprite(0, 0);
+}
+
+void setup()
+{
+  Serial.begin(115200);
+  // 液晶の初期化
+  tft.init();
+  tft.setRotation(4);
+  tft.fillScreen(TFT_BLACK);
+
+  // 240x240の全画面スプライト（仮想キャンバス）をメモリ上に確保
+  spr.createSprite(240, 240);
+  zikoichi();
+  gyrokeisan();
+
+  tft.fillScreen(TFT_BLACK);
 }
 
 void loop()
