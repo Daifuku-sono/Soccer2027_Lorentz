@@ -4,7 +4,7 @@
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite spr = TFT_eSprite(&tft);
 
-// 角度 * -1 + 180
+// 角度 * -1 + 180 右回り
 const char *menuItems[] = {
     "All",
     "Position",
@@ -490,10 +490,20 @@ void print(int x, int y, const char *str, int textSize, int color, int AColor)
   spr.print(str);
 }
 
+float normalizeAngle(float angle)
+{
+  while (angle > 180.0)
+    angle -= 360.0;
+  while (angle <= -180.0)
+    angle += 360.0;
+  return angle;
+}
+
 float gyroangle = 0;
 void gyrokeisan()
 {
   gyroangle++;
+  gyroangle = normalizeAngle(gyroangle);
 }
 
 void gyro()
@@ -726,10 +736,10 @@ void Maincamdebug()
 {
   camerakeisan();
   spr.fillSprite(TFT_BLACK);
-  
+
   print(0, 0, "Main Camera", 3, TFT_CYAN, TFT_BLACK);
   spr.drawLine(0, 30, 240, 30, TFT_CYAN);
-  
+
   spr.setTextSize(2);
   char buf[32];
 
@@ -737,81 +747,109 @@ void Maincamdebug()
   //  Yellow (黄ゴール)
   // ==========================================
   spr.setTextColor(TFT_YELLOW, TFT_BLACK);
-  
+
   // Angle
-  spr.setCursor(10, 34);  spr.print("Yellow: Angle:");
+  spr.setCursor(10, 34);
+  spr.print("Yellow: Angle:");
   snprintf(buf, sizeof(buf), "%4d", (int)Ya);
-  spr.setCursor(170, 34); spr.print(buf);
-  
+  spr.setCursor(170, 34);
+  spr.print(buf);
+
   // X / Y
-  spr.setCursor(10, 50);  spr.print("X:");
+  spr.setCursor(10, 50);
+  spr.print("X:");
   snprintf(buf, sizeof(buf), "%4d", (int)Yx);
-  spr.setCursor(35, 50);  spr.print(buf);
-  
-  spr.setCursor(100, 50); spr.print("Y:");
+  spr.setCursor(35, 50);
+  spr.print(buf);
+
+  spr.setCursor(100, 50);
+  spr.print("Y:");
   snprintf(buf, sizeof(buf), "%4d", (int)Yy);
-  spr.setCursor(125, 50); spr.print(buf);
-  
+  spr.setCursor(125, 50);
+  spr.print(buf);
+
   // W / H
-  spr.setCursor(10, 66);  spr.print("W:");
+  spr.setCursor(10, 66);
+  spr.print("W:");
   snprintf(buf, sizeof(buf), "%4d", (int)Yw);
-  spr.setCursor(35, 66);  spr.print(buf);
-  
-  spr.setCursor(100, 66); spr.print("H:");
+  spr.setCursor(35, 66);
+  spr.print(buf);
+
+  spr.setCursor(100, 66);
+  spr.print("H:");
   snprintf(buf, sizeof(buf), "%4d", (int)Yh);
-  spr.setCursor(125, 66); spr.print(buf);
+  spr.setCursor(125, 66);
+  spr.print(buf);
 
   // ==========================================
   //  Blue (青ゴール)
   // ==========================================
   spr.setTextColor(TFT_SKYBLUE, TFT_BLACK);
-  
+
   // Angle
-  spr.setCursor(10, 98);  spr.print("Blue:   Angle:");
+  spr.setCursor(10, 98);
+  spr.print("Blue:   Angle:");
   snprintf(buf, sizeof(buf), "%4d", (int)Ba);
-  spr.setCursor(170, 98); spr.print(buf);
-  
+  spr.setCursor(170, 98);
+  spr.print(buf);
+
   // X / Y
-  spr.setCursor(10, 114); spr.print("X:");
+  spr.setCursor(10, 114);
+  spr.print("X:");
   snprintf(buf, sizeof(buf), "%4d", (int)Bx);
-  spr.setCursor(35, 114); spr.print(buf);
-  
-  spr.setCursor(100, 114); spr.print("Y:");
+  spr.setCursor(35, 114);
+  spr.print(buf);
+
+  spr.setCursor(100, 114);
+  spr.print("Y:");
   snprintf(buf, sizeof(buf), "%4d", (int)By);
-  spr.setCursor(125, 114); spr.print(buf);
-  
+  spr.setCursor(125, 114);
+  spr.print(buf);
+
   // W / H
-  spr.setCursor(10, 130); spr.print("W:");
+  spr.setCursor(10, 130);
+  spr.print("W:");
   snprintf(buf, sizeof(buf), "%4d", (int)Bw);
-  spr.setCursor(35, 130); spr.print(buf);
-  
-  spr.setCursor(100, 130); spr.print("H:");
+  spr.setCursor(35, 130);
+  spr.print(buf);
+
+  spr.setCursor(100, 130);
+  spr.print("H:");
   snprintf(buf, sizeof(buf), "%4d", (int)Bh);
-  spr.setCursor(125, 130); spr.print(buf);
+  spr.setCursor(125, 130);
+  spr.print(buf);
 
   // ==========================================
   //  Ball (ボール)
   // ==========================================
   spr.setTextColor(TFT_ORANGE, TFT_BLACK);
-  
+
   // Angle
-  spr.setCursor(10, 162); spr.print("Ball:   Angle:");
+  spr.setCursor(10, 162);
+  spr.print("Ball:   Angle:");
   snprintf(buf, sizeof(buf), "%4d", (int)Oa);
-  spr.setCursor(170, 162); spr.print(buf);
-  
+  spr.setCursor(170, 162);
+  spr.print(buf);
+
   // X / Y
-  spr.setCursor(10, 178); spr.print("X:");
+  spr.setCursor(10, 178);
+  spr.print("X:");
   snprintf(buf, sizeof(buf), "%4d", (int)Ox);
-  spr.setCursor(35, 178); spr.print(buf);
-  
-  spr.setCursor(100, 178); spr.print("Y:");
+  spr.setCursor(35, 178);
+  spr.print(buf);
+
+  spr.setCursor(100, 178);
+  spr.print("Y:");
   snprintf(buf, sizeof(buf), "%4d", (int)Oy);
-  spr.setCursor(125, 178); spr.print(buf);
-  
+  spr.setCursor(125, 178);
+  spr.print(buf);
+
   // W
-  spr.setCursor(10, 194); spr.print("W:");
+  spr.setCursor(10, 194);
+  spr.print("W:");
   snprintf(buf, sizeof(buf), "%4d", (int)Ow);
-  spr.setCursor(35, 194); spr.print(buf);
+  spr.setCursor(35, 194);
+  spr.print(buf);
 
   // ==========================================
   //  Green (緑)
@@ -849,8 +887,8 @@ struct SensorGroup
 };
 
 // センサ情報
-int lineA = 6;
-int j[36] = {1, 2, 3, 4, 22, 23};
+int lineA = 5;
+int j[36] = {1, 2, 10, 11, 22};
 int R = 100;
 int targetA = 0;
 
@@ -1494,100 +1532,33 @@ void linedebug()
   // しきいち
   spr.pushSprite(0, 0);
 }
-
 float calcX, calcY;
+float endX, endY, bluegoal, yellowgoal;
 
-void zikoichi()
+void zikoichikeisan()
 {
-  float yellowgoal = 120;
-  float bluegoal = 30;
+  gyrokeisan();
 
-  // 横幅 41から199、縦幅 11から230
-  spr.fillSprite(TFT_BLACK);
-  spr.fillRect(29, 0, 182, 240, TFT_DARKGREEN);
+  yellowgoal = normalizeAngle(gyroangle + 10.0);
+  bluegoal = normalizeAngle(gyroangle + 180.0);
 
-  // goal
-  spr.fillRect(90, 1, 60, 10, TFT_BLUE);   // 上(青)
-  spr.fillRect(90, 229, 60, 10, TFT_GOLD); // 下(黄)
+  float radB = bluegoal * PI / 180.0;
+  float radY = yellowgoal * PI / 180.0;
 
-  // 白線
-  spr.fillRect(41, 11, 158, 219, TFT_WHITE);
-  spr.fillRect(43, 13, 154, 215, TFT_DARKGREEN);
-  // センターライン
-  spr.fillRect(41, 119, 158, 2, TFT_WHITE);
-  spr.drawCircle(120, 120, 30, TFT_WHITE);
-  spr.drawCircle(120, 120, 29, TFT_WHITE);
+  float sinDiff = sin(radB - radY);
 
-  int pr = 15; // penalty areaの半径
-
-  // --- 青ゴール ---
-  spr.fillRect(80, 13, 2, 11, TFT_WHITE);                                      // 左
-  spr.fillRect(158, 13, 2, 11, TFT_WHITE);                                     // 右
-  spr.fillRect(95, 36, 50, 2, TFT_WHITE);                                      // 前方
-  spr.drawArc(95, 23, pr, pr - 2, 0, 90, TFT_WHITE, TFT_DARKGREEN, false);     // 左前
-  spr.drawArc(145, 23, pr, pr - 2, 270, 360, TFT_WHITE, TFT_DARKGREEN, false); // 右前
-
-  // --- 黄ゴール ---
-  spr.fillRect(80, 216, 2, 10, TFT_WHITE);                                      // 左
-  spr.fillRect(158, 216, 2, 10, TFT_WHITE);                                     // 右
-  spr.fillRect(95, 202, 50, 2, TFT_WHITE);                                      // 前方
-  spr.drawArc(95, 217, pr, pr - 2, 90, 180, TFT_WHITE, TFT_DARKGREEN, false);   // 左前
-  spr.drawArc(145, 217, pr, pr - 2, 180, 270, TFT_WHITE, TFT_DARKGREEN, false); // 右前
-
-  // 中立点
-  spr.fillCircle(120, 120, 2, TFT_WHITE); // センター
-  spr.fillCircle(80, 56, 2, TFT_WHITE);   // 左上
-  spr.fillCircle(160, 56, 2, TFT_WHITE);  // 右上
-  spr.fillCircle(80, 184, 2, TFT_WHITE);  // 左下
-  spr.fillCircle(160, 184, 2, TFT_WHITE); // 右下
-
-  // --- 機体位置の計算と修正 ---
-
-  // 1. 縦方向 (Y座標) の計算（元のうまくいっているロジックをそのまま使用）
-  float radY = (90.0 - yellowgoal) * PI / 180.0;
-  float radB = (90.0 - bluegoal) * PI / 180.0;
-
-  float sinY = sin(radY);
-  float sinB = sin(radB);
-
-  float denom = abs(sinY) + abs(sinB);
-  if (denom < 0.0001)
+  if (abs(sinDiff) > 0.01)
   {
-    denom = 0.0001;
+    calcX = 120.0 + 218.0 * (sin(radB) * sin(radY)) / sinDiff;
+    calcY = 229.0 - 218.0 * (sin(radB) * cos(radY)) / sinDiff;
+  }
+  else
+  {
+    calcX = 120.0;
+    calcY = 120.0; // 暫定的に中央にする
   }
 
-  float wariai = abs(sinY) / denom;
-
-  if (wariai < 0.0)
-    wariai = 0.0;
-  if (wariai > 1.0)
-    wariai = 1.0;
-
-  calcY = 11.0 + (218.0 * wariai);
-
-  // 2. 横方向 (X座標) の計算（ここからが修正部分）
-  // ゴール角度を標準的なラジアンに変換
-  float angB = bluegoal * PI / 180.0;
-  float angY = yellowgoal * PI / 180.0;
-
-  // 90度や270度のときにtanが無限大になってバグるのを防ぐガード処理
-  float tanB = tan(angB);
-  if (abs(cos(angB)) < 0.001)
-    tanB = (sin(angB) > 0) ? 1000.0 : -1000.0;
-
-  float tanY_val = tan(angY);
-  if (abs(cos(angY)) < 0.001)
-    tanY_val = (sin(angY) > 0) ? 1000.0 : -1000.0;
-
-  // 各ゴールから「幾何学的に正しいX座標」を逆算する
-  // 中心X(120.0) - (Yの距離) * tan(角度)
-  float estX_B = 120.0 - (calcY - 11.0) * tanB;
-  float estX_Y = 120.0 - (calcY - 229.0) * tanY_val;
-
-  // Y座標の位置(wariai)に応じて、近い方のゴールの推定値を強く反映させる（加重平均）
-  calcX = estX_B * (1.0 - wariai) + estX_Y * wariai;
-
-  // フィールドの描画範囲（白線の内側）からはみ出さないようにクランプ
+  // 画面外はみ出し防止
   if (calcX < 41.0)
     calcX = 41.0;
   if (calcX > 199.0)
@@ -1597,12 +1568,58 @@ void zikoichi()
   if (calcY > 230.0)
     calcY = 230.0;
 
-  // 機体を描画
+  float dirRad = gyroangle * PI / 180.0;
+  float lineLength = 15.0;
+  endX = calcX + lineLength * sin(dirRad);
+  endY = calcY - lineLength * cos(dirRad);
+}
+
+void zikoichi()
+{
+  zikoichikeisan();
+
+  // ディスプレイ描画初期化
+  spr.fillSprite(TFT_BLACK);
+  spr.fillRect(29, 0, 182, 240, TFT_DARKGREEN);
+
+  // ゴール描画
+  spr.fillRect(90, 1, 60, 10, TFT_BLUE);   // 上(青)
+  spr.fillRect(90, 229, 60, 10, TFT_GOLD); // 下(黄)
+
+  // 白線描画
+  spr.fillRect(41, 11, 158, 219, TFT_WHITE);
+  spr.fillRect(43, 13, 154, 215, TFT_DARKGREEN);
+  spr.fillRect(41, 119, 158, 2, TFT_WHITE);
+  spr.drawCircle(120, 120, 30, TFT_WHITE);
+  spr.drawCircle(120, 120, 29, TFT_WHITE);
+
+  int pr = 15;
+  // 青エリア
+  spr.fillRect(80, 13, 2, 11, TFT_WHITE);
+  spr.fillRect(158, 13, 2, 11, TFT_WHITE);
+  spr.fillRect(95, 36, 50, 2, TFT_WHITE);
+  spr.drawArc(95, 23, pr, pr - 2, 0, 90, TFT_WHITE, TFT_DARKGREEN, false);
+  spr.drawArc(145, 23, pr, pr - 2, 270, 360, TFT_WHITE, TFT_DARKGREEN, false);
+
+  // 黄エリア
+  spr.fillRect(80, 216, 2, 10, TFT_WHITE);
+  spr.fillRect(158, 216, 2, 10, TFT_WHITE);
+  spr.fillRect(95, 202, 50, 2, TFT_WHITE);
+  spr.drawArc(95, 217, pr, pr - 2, 90, 180, TFT_WHITE, TFT_DARKGREEN, false);
+  spr.drawArc(145, 217, pr, pr - 2, 180, 270, TFT_WHITE, TFT_DARKGREEN, false);
+
+  // 中立点
+  spr.fillCircle(120, 120, 1, TFT_DARKGREY);
+  spr.fillCircle(80, 56, 1, TFT_DARKGREY);
+  spr.fillCircle(160, 56, 1, TFT_DARKGREY);
+  spr.fillCircle(80, 184, 1, TFT_DARKGREY);
+  spr.fillCircle(160, 184, 1, TFT_DARKGREY);
+
   spr.fillCircle(calcX, calcY, 5, TFT_RED);
 
-  // デバッグ用表示
+  spr.drawLine(calcX, calcY, endX, endY, TFT_YELLOW);
 
-  // ball
+  // ボール描画
   spr.fillCircle(140, 180, 2, TFT_ORANGE);
 
   spr.pushSprite(0, 0);
@@ -1610,6 +1627,8 @@ void zikoichi()
 
 void zikoichidebug()
 {
+  zikoichikeisan();
+
   int A = 1; // Aはコートの長さと displayのサイズの倍率
   spr.fillSprite(TFT_BLACK);
   print(0, 0, "Position", 3, TFT_CYAN, TFT_BLACK);
@@ -1617,12 +1636,19 @@ void zikoichidebug()
   spr.setTextColor(TFT_WHITE, TFT_BLACK);
   spr.setCursor(10, 50);
   spr.print("X:");
-  spr.print(String((calcX - 41) * A, 1));
-  spr.print(" Y:");
-  spr.print(String((calcY - 11) * A, 1));
+  spr.print(calcX - 41);
+  spr.setCursor(10, 80);
+  spr.print("Y:");
+  spr.print(calcY - 11);
+  spr.setCursor(10, 110);
+  spr.print("Angle");
+  spr.print(gyroangle);
+  spr.setCursor(10, 140);
+  spr.print(normalizeAngle(yellowgoal - gyroangle));
+  spr.print(" ");
+  spr.print(normalizeAngle(bluegoal - gyroangle));
   spr.pushSprite(0, 0);
 }
-
 void guruguru()
 {
   spr.fillSprite(TFT_BLACK);
