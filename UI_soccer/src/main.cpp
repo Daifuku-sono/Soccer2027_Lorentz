@@ -533,6 +533,16 @@ void BLE()
   spr.pushSprite(0, 0);
 }
 
+void BallCheck()
+{
+  spr.fillSprite(TFT_BLACK);
+  print(0, 0, "Ball Check", 3, TFT_CYAN, TFT_BLACK);
+  spr.drawLine(0, 30, 240, 30, TFT_CYAN);
+  spr.fillCircle(35, 50, 10, TFT_GREEN);
+  print(50, 38, "have", 4, TFT_GREEN, TFT_BLACK);
+  spr.pushSprite(0, 0);
+}
+
 float ballangle = 0;
 float balldistance = 0;
 
@@ -570,6 +580,7 @@ void drawyazirushi(int x1, int y1, int x2, int y2)
   spr.drawWideLine(x2, y2, ax2, ay2, 3, TFT_GREENYELLOW, TFT_GREENYELLOW);
 }
 // エンコーダー描画関数（サッカー軽量級4輪オムニ回転方向対応版）
+
 void Encoder()
 {
   spr.fillSprite(TFT_BLACK);
@@ -617,17 +628,18 @@ void Encoder()
   }
   spr.setTextSize(2);
   spr.setTextColor(TFT_WHITE);
-  spr.setCursor(169,65);
+  spr.setCursor(169, 65);
   spr.print(arrow_length[0]);
-  spr.setCursor(65,65);
+  spr.setCursor(65, 65);
   spr.print(arrow_length[1]);
-  spr.setCursor(65,193);
+  spr.setCursor(65, 193);
   spr.print(arrow_length[2]);
-  spr.setCursor(169,193);
+  spr.setCursor(169, 193);
   spr.print(arrow_length[3]);
-  
+
   spr.pushSprite(0, 0);
 }
+
 void ball()
 {
   ballkeisan();
@@ -702,7 +714,7 @@ void Maincam()
   spr.fillSprite(TFT_BLACK);
   print(0, 0, "Main Camera", 3, TFT_CYAN, TFT_BLACK);
   spr.drawLine(0, 30, 240, 30, TFT_CYAN);
-  spr.fillCircle(135, 135, 100, TFT_DARKGREY);
+  spr.fillCircle(135, 135, 100, 0x0841);
 
   drawRotatedRectangle(Yx, Yy, Yw, Yh, Ya, TFT_GOLD);
   // drawRotatedRectangle(Bx,By,Bw,Bh,Ba,TFT_BLUE);
@@ -714,44 +726,100 @@ void Maincamdebug()
 {
   camerakeisan();
   spr.fillSprite(TFT_BLACK);
-  spr.setTextColor(TFT_WHITE, TFT_BLACK);
+  
   print(0, 0, "Main Camera", 3, TFT_CYAN, TFT_BLACK);
   spr.drawLine(0, 30, 240, 30, TFT_CYAN);
-  spr.setTextColor(TFT_WHITE);
+  
   spr.setTextSize(2);
-  spr.setCursor(10, 34);
-  spr.print("YellowGoal: ");
-  spr.print(Ya);
-  spr.setCursor(10, 50);
-  spr.print(Yx);
-  spr.print(" : ");
-  spr.print(Yy);
-  spr.setCursor(10, 66);
-  spr.print(Yw);
-  spr.print(" : ");
-  spr.print(Yh);
-  spr.setCursor(10, 98);
-  spr.print("BlueGoal: ");
-  spr.print(Ba);
-  spr.setCursor(10, 114);
-  spr.print(Bx);
-  spr.print(" : ");
-  spr.print(By);
-  spr.setCursor(10, 130);
-  spr.print(Bw);
-  spr.print(" : ");
-  spr.print(Bh);
-  spr.setCursor(10, 162);
-  spr.print("Ball: ");
-  spr.print(Oa);
-  spr.setCursor(10, 178);
-  spr.print(Ox);
-  spr.print(" : ");
-  spr.print(Oy);
-  spr.setCursor(10, 194);
-  spr.print(Ow);
+  char buf[32];
+
+  // ==========================================
+  //  Yellow (黄ゴール)
+  // ==========================================
+  spr.setTextColor(TFT_YELLOW, TFT_BLACK);
+  
+  // Angle
+  spr.setCursor(10, 34);  spr.print("Yellow: Angle:");
+  snprintf(buf, sizeof(buf), "%4d", (int)Ya);
+  spr.setCursor(170, 34); spr.print(buf);
+  
+  // X / Y
+  spr.setCursor(10, 50);  spr.print("X:");
+  snprintf(buf, sizeof(buf), "%4d", (int)Yx);
+  spr.setCursor(35, 50);  spr.print(buf);
+  
+  spr.setCursor(100, 50); spr.print("Y:");
+  snprintf(buf, sizeof(buf), "%4d", (int)Yy);
+  spr.setCursor(125, 50); spr.print(buf);
+  
+  // W / H
+  spr.setCursor(10, 66);  spr.print("W:");
+  snprintf(buf, sizeof(buf), "%4d", (int)Yw);
+  spr.setCursor(35, 66);  spr.print(buf);
+  
+  spr.setCursor(100, 66); spr.print("H:");
+  snprintf(buf, sizeof(buf), "%4d", (int)Yh);
+  spr.setCursor(125, 66); spr.print(buf);
+
+  // ==========================================
+  //  Blue (青ゴール)
+  // ==========================================
+  spr.setTextColor(TFT_SKYBLUE, TFT_BLACK);
+  
+  // Angle
+  spr.setCursor(10, 98);  spr.print("Blue:   Angle:");
+  snprintf(buf, sizeof(buf), "%4d", (int)Ba);
+  spr.setCursor(170, 98); spr.print(buf);
+  
+  // X / Y
+  spr.setCursor(10, 114); spr.print("X:");
+  snprintf(buf, sizeof(buf), "%4d", (int)Bx);
+  spr.setCursor(35, 114); spr.print(buf);
+  
+  spr.setCursor(100, 114); spr.print("Y:");
+  snprintf(buf, sizeof(buf), "%4d", (int)By);
+  spr.setCursor(125, 114); spr.print(buf);
+  
+  // W / H
+  spr.setCursor(10, 130); spr.print("W:");
+  snprintf(buf, sizeof(buf), "%4d", (int)Bw);
+  spr.setCursor(35, 130); spr.print(buf);
+  
+  spr.setCursor(100, 130); spr.print("H:");
+  snprintf(buf, sizeof(buf), "%4d", (int)Bh);
+  spr.setCursor(125, 130); spr.print(buf);
+
+  // ==========================================
+  //  Ball (ボール)
+  // ==========================================
+  spr.setTextColor(TFT_ORANGE, TFT_BLACK);
+  
+  // Angle
+  spr.setCursor(10, 162); spr.print("Ball:   Angle:");
+  snprintf(buf, sizeof(buf), "%4d", (int)Oa);
+  spr.setCursor(170, 162); spr.print(buf);
+  
+  // X / Y
+  spr.setCursor(10, 178); spr.print("X:");
+  snprintf(buf, sizeof(buf), "%4d", (int)Ox);
+  spr.setCursor(35, 178); spr.print(buf);
+  
+  spr.setCursor(100, 178); spr.print("Y:");
+  snprintf(buf, sizeof(buf), "%4d", (int)Oy);
+  spr.setCursor(125, 178); spr.print(buf);
+  
+  // W
+  spr.setCursor(10, 194); spr.print("W:");
+  snprintf(buf, sizeof(buf), "%4d", (int)Ow);
+  spr.setCursor(35, 194); spr.print(buf);
+
+  // ==========================================
+  //  Green (緑)
+  // ==========================================
+  spr.setTextColor(TFT_DARKGREEN, TFT_BLACK);
   spr.setCursor(10, 226);
-  spr.print("Green: ");
+  spr.print("Green:  size:");
+
   spr.pushSprite(0, 0);
 }
 
@@ -1820,6 +1888,10 @@ void setmode()
       {
         Encoder();
       }
+      else if (mode == 9)
+      {
+        BallCheck();
+      }
       else
       {
         drawBitmap(0, 0, epd_bitmap_image, 240, 240, getAutoRainbowColor());
@@ -1885,7 +1957,6 @@ void setup()
 
   // 240x240の全画面スプライト（仮想キャンバス）をメモリ上に確保
   spr.createSprite(240, 240);
-
   tft.fillScreen(TFT_BLACK);
 }
 
