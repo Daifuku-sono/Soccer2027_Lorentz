@@ -4,9 +4,10 @@
 TFT_eSPI tft = TFT_eSPI();
 TFT_eSprite spr = TFT_eSprite(&tft);
 
+// 角度 * -1 + 180
 const char *menuItems[] = {
     "All",
-    "Where",
+    "Position",
     "Gyro",
     "Ball",
     "Line",
@@ -488,64 +489,184 @@ void print(int x, int y, const char *str, int textSize, int color, int AColor)
   spr.setCursor(x, y);
   spr.print(str);
 }
+
 float gyroangle = 0;
 void gyrokeisan()
 {
-  gyroangle = 100.0;
+  gyroangle++;
 }
 
 void gyro()
 {
   gyrokeisan();
+
   float angle = gyroangle;
+  if (angle > 360)
+    angle -= 360;
+  if (angle < 0)
+    angle += 360;
   spr.fillSprite(TFT_BLACK);
-  spr.drawCircle(135, 135, 100, TFT_WHITE);
-  spr.drawLine(135, 135, 135 + 100 * cos((angle + 90) * PI / 180), 135 + 100 * sin((angle + 90) * PI / 180), TFT_WHITE);
-  print(80, 120, "Angle", 3, TFT_WHITE, TFT_BLACK);
+  print(0, 0, "Gyro", 3, TFT_CYAN, TFT_BLACK);
+  spr.drawLine(0, 30, 240, 30, TFT_CYAN);
+  spr.setTextColor(TFT_WHITE);
+  spr.setCursor(112, 112);
   spr.print(angle);
+  spr.drawCircle(135, 135, 100, TFT_WHITE);
+  spr.drawLine(135, 135, 135 + 100 * cos((angle + 90) * PI / 180), 135 + 100 * sin((angle + 90) * PI / 180), TFT_CYAN);
   spr.pushSprite(0, 0);
 }
 
-float ballangle = 0;
-float balldistance = 0;
 void BLEcheck()
 {
-  ballangle = 100;
-  balldistance = 100;
+  // ballangle = 100;
+  // balldistance = 100;
 }
 
 void BLE()
 {
   BLEcheck();
   spr.fillSprite(TFT_BLACK);
+  print(0, 0, "BLE", 3, TFT_CYAN, TFT_BLACK);
+  spr.drawLine(0, 30, 240, 30, TFT_CYAN);
   spr.fillCircle(35, 50, 10, TFT_GREEN);
   print(50, 38, "Success", 4, TFT_GREEN, TFT_BLACK);
   spr.pushSprite(0, 0);
 }
+
+float ballangle = 0;
+float balldistance = 0;
 
 void ballkeisan()
 {
   ballangle = 100;
   balldistance = 100;
 }
+// 矢印を描画する関数
+// 矢印を描画する関数
+void drawyazirushi(int x1, int y1, int x2, int y2)
+{
+  float dx = x2 - x1;
+  float dy = y2 - y1;
+  float theta = atan2(dy, dx);
+  float Lline = sqrt(dx * dx + dy * dy);
 
+  float arrow_len = Lline / 3.0;
+  if (arrow_len > 15.0)
+    arrow_len = 15.0;
+  if (arrow_len < 5.0)
+    arrow_len = 5.0;
+
+  float arrow_angle = 30.0 * PI / 180.0;
+
+  // 本線
+  spr.drawWideLine(x1, y1, x2, y2, 3, TFT_GREENYELLOW, TFT_GREENYELLOW);
+
+  int ax1 = x2 - arrow_len * cos(theta - arrow_angle);
+  int ay1 = y2 - arrow_len * sin(theta - arrow_angle);
+  spr.drawWideLine(x2, y2, ax1, ay1, 3, TFT_GREENYELLOW, TFT_GREENYELLOW);
+
+  int ax2 = x2 - arrow_len * cos(theta + arrow_angle);
+  int ay2 = y2 - arrow_len * sin(theta + arrow_angle);
+  spr.drawWideLine(x2, y2, ax2, ay2, 3, TFT_GREENYELLOW, TFT_GREENYELLOW);
+}
+// エンコーダー描画関数（サッカー軽量級4輪オムニ回転方向対応版）
+void Encoder()
+{
+  spr.fillSprite(TFT_BLACK);
+
+  int cx = 135;
+  int cy = 135;
+  int r = 100; // 円の半径
+
+  spr.fillCircle(cx, cy, r, 0x0841);
+
+  // 右上
+  int pos_angles[] = {315, 225, 135, 45};
+
+  int pos_dir_angles[] = {225, 315, 225, 315};
+
+  int neg_dir_angles[] = {45, 135, 45, 135};
+
+  int arrow_length[] = {35, 105, -35, -105};
+
+  for (int i = 0; i < 4; i++)
+  {
+    // 円周上のホイールの設置位置（始点）
+    float pos_rad = pos_angles[i] * PI / 180.0;
+    int x1 = cx + r * cos(pos_rad);
+    int y1 = cy + r * sin(pos_rad);
+    // 正負判定による矢印の伸ばす角度（方向ベクトル）の選択
+    float dir_deg;
+    if (arrow_length[i] >= 0)
+    {
+      dir_deg = pos_dir_angles[i]; // 正：前寄りの斜め
+    }
+    else
+    {
+      dir_deg = neg_dir_angles[i]; // 負：後ろ寄りの斜め
+    }
+
+    float dir_rad = dir_deg * PI / 180.0;
+    int len = abs(arrow_length[i] / 3); // 矢印の長さは絶対値
+
+    // 矢印の終点を計算
+    int x2 = x1 + len * cos(dir_rad);
+    int y2 = y1 + len * sin(dir_rad);
+
+    drawyazirushi(x1, y1, x2, y2);
+  }
+  spr.setTextSize(2);
+  spr.setTextColor(TFT_WHITE);
+  spr.setCursor(169,65);
+  spr.print(arrow_length[0]);
+  spr.setCursor(65,65);
+  spr.print(arrow_length[1]);
+  spr.setCursor(65,193);
+  spr.print(arrow_length[2]);
+  spr.setCursor(169,193);
+  spr.print(arrow_length[3]);
+  
+  spr.pushSprite(0, 0);
+}
 void ball()
 {
   ballkeisan();
+  float angle = ballangle;
+  float distance = balldistance;
   spr.fillSprite(TFT_BLACK);
+  print(0, 0, "Ball", 3, TFT_CYAN, TFT_BLACK);
+  spr.drawLine(0, 30, 240, 30, TFT_CYAN);
   spr.drawCircle(135, 135, 25, TFT_WHITE);
   spr.drawCircle(135, 135, 50, TFT_WHITE);
   spr.drawCircle(135, 135, 75, TFT_WHITE);
   spr.drawCircle(135, 135, 100, TFT_WHITE);
   spr.drawLine(35, 135, 235, 135, TFT_WHITE);
-  spr.drawLine(135, 35, 135, 235, TFT_WHITE);
-  spr.fillCircle(135 + cos((ballangle + 90) * PI / 180), 135 + sin((ballangle + 90) * PI / 180), 8, TFT_ORANGE);
+  spr.drawLine(135, 30, 135, 235, TFT_WHITE);
+  spr.fillCircle(135 + distance * cos((angle + 90) * PI / 180), 135 + distance * sin((angle + 90) * PI / 180), 8, TFT_ORANGE);
   spr.pushSprite(0, 0);
+}
+
+void balldebug()
+{
+  spr.fillSprite(TFT_BLACK);
+  print(0, 0, "Ball Debug", 3, TFT_CYAN, TFT_BLACK);
+  spr.drawLine(0, 30, 240, 30, TFT_CYAN);
+  spr.setTextSize(3);
+  spr.setTextColor(TFT_WHITE);
+  spr.setCursor(10, 34);
+  spr.print("Angle:");
+  spr.print(ballangle);
+  spr.setCursor(10, 58);
+  spr.print("dis:");
+  spr.print(balldistance);
+  spr.setCursor(10, 82);
+  spr.print(135 + balldistance * ((ballangle + 90) * PI / 180));
+  spr.setCursor(10, 106);
+  spr.print(135 + balldistance * ((ballangle + 90) * PI / 180));
 }
 
 void drawRotatedRectangle(int16_t cx, int16_t cy, int16_t w, int16_t h, float angle, uint16_t color)
 {
-  spr.fillSprite(TFT_BLACK);
   int x0 = cx;
   int y0 = cy;
   int x1 = cx + w * cos(angle * PI / 180);
@@ -556,7 +677,6 @@ void drawRotatedRectangle(int16_t cx, int16_t cy, int16_t w, int16_t h, float an
   int y3 = y1 + h * sin((angle - 90) * PI / 180);
   spr.fillTriangle(x0, y0, x1, y1, x2, y2, color);
   spr.fillTriangle(x1, y1, x2, y2, x3, y3, color);
-  spr.pushSprite(0, 0);
 }
 
 float Yx, Yy, Yw, Yh, Ya;
@@ -566,16 +686,22 @@ float Ox, Oy, Ow, Oa;
 void camerakeisan()
 {
   Yx = 120;
-  Yy = 180;
+  Yy = 90;
   Yw = 80;
   Yh = 30;
   Ya = 30;
+  Ox = 10;
+  Oy = 100;
+  Ow = 8;
+  Oa = 100;
 }
 
 void Maincam()
 {
   camerakeisan();
-
+  spr.fillSprite(TFT_BLACK);
+  print(0, 0, "Main Camera", 3, TFT_CYAN, TFT_BLACK);
+  spr.drawLine(0, 30, 240, 30, TFT_CYAN);
   spr.fillCircle(135, 135, 100, TFT_DARKGREY);
 
   drawRotatedRectangle(Yx, Yy, Yw, Yh, Ya, TFT_GOLD);
@@ -590,40 +716,42 @@ void Maincamdebug()
   spr.fillSprite(TFT_BLACK);
   spr.setTextColor(TFT_WHITE, TFT_BLACK);
   print(0, 0, "Main Camera", 3, TFT_CYAN, TFT_BLACK);
-  spr.drawLine(0, 35, 240, 35, TFT_CYAN);
+  spr.drawLine(0, 30, 240, 30, TFT_CYAN);
   spr.setTextColor(TFT_WHITE);
   spr.setTextSize(2);
-  spr.setCursor(10, 50);
+  spr.setCursor(10, 34);
   spr.print("YellowGoal: ");
+  spr.print(Ya);
+  spr.setCursor(10, 50);
   spr.print(Yx);
   spr.print(" : ");
   spr.print(Yy);
-  spr.print(" : ");
+  spr.setCursor(10, 66);
   spr.print(Yw);
   spr.print(" : ");
   spr.print(Yh);
-  spr.print(" : ");
-  spr.print(Ya);
-  spr.setCursor(10, 100);
+  spr.setCursor(10, 98);
   spr.print("BlueGoal: ");
+  spr.print(Ba);
+  spr.setCursor(10, 114);
   spr.print(Bx);
   spr.print(" : ");
   spr.print(By);
-  spr.print(" : ");
+  spr.setCursor(10, 130);
   spr.print(Bw);
   spr.print(" : ");
   spr.print(Bh);
-  spr.print(" : ");
-  spr.print(Ba);
-  spr.setCursor(10, 150);
+  spr.setCursor(10, 162);
   spr.print("Ball: ");
+  spr.print(Oa);
+  spr.setCursor(10, 178);
   spr.print(Ox);
   spr.print(" : ");
   spr.print(Oy);
-  spr.print(" : ");
+  spr.setCursor(10, 194);
   spr.print(Ow);
-  spr.print(" : ");
-  spr.print(Oa);
+  spr.setCursor(10, 226);
+  spr.print("Green: ");
   spr.pushSprite(0, 0);
 }
 
@@ -668,6 +796,8 @@ SensorGroup validLines[10];
 int validLinesCount = 0;
 SensorGroup invalidGroups[36];
 int invalidGroupsCount = 0;
+
+int threshold = 0;
 
 void linekeisan()
 {
@@ -994,7 +1124,7 @@ void line()
   spr.fillSprite(TFT_BLACK);
   spr.drawCircle(135, 135, R, TFT_WHITE);
   print(0, 0, "Line", 3, TFT_CYAN, TFT_BLACK);
-
+  spr.drawLine(0, 30, 240, 30, TFT_CYAN);
   for (int i = 0; i < 36; i++)
   {
     spr.drawLine(135, 135, 135 + R * cos((i * 10 + 90) * PI / 180), 135 + R * sin((i * 10 + 90) * PI / 180), TFT_WHITE);
@@ -1260,9 +1390,6 @@ void line()
   spr.pushSprite(0, 0);
 }
 
-void linethreshold()
-{
-}
 void linedebug()
 {
   // 計算
@@ -1270,6 +1397,7 @@ void linedebug()
   spr.fillSprite(TFT_BLACK);
 
   print(0, 0, "Line Debug", 3, TFT_CYAN, TFT_BLACK);
+  spr.drawLine(0, 30, 240, 30, TFT_CYAN);
   spr.setTextSize(2);
   spr.setTextColor(TFT_WHITE, TFT_BLACK);
   spr.setCursor(10, 50);
@@ -1295,6 +1423,7 @@ void linedebug()
   spr.print("Count:");
   spr.print(lineRealcount);
 
+  // しきいち
   spr.pushSprite(0, 0);
 }
 
@@ -1413,19 +1542,17 @@ void zikoichi()
 
 void zikoichidebug()
 {
+  int A = 1; // Aはコートの長さと displayのサイズの倍率
   spr.fillSprite(TFT_BLACK);
+  print(0, 0, "Position", 3, TFT_CYAN, TFT_BLACK);
+  spr.drawLine(0, 30, 240, 30, TFT_CYAN);
   spr.setTextColor(TFT_WHITE, TFT_BLACK);
-  spr.setCursor(0, 0);
+  spr.setCursor(10, 50);
   spr.print("X:");
-  spr.print(String(calcX, 1));
+  spr.print(String((calcX - 41) * A, 1));
   spr.print(" Y:");
-  spr.print(String(calcY, 1));
-  spr.setTextColor(TFT_WHITE, TFT_BLACK);
-  spr.setCursor(0, 0);
-  spr.print("X:");
-  spr.print(String(calcX, 1));
-  spr.print(" Y:");
-  spr.print(String(calcY, 1));
+  spr.print(String((calcY - 11) * A, 1));
+  spr.pushSprite(0, 0);
 }
 
 void guruguru()
@@ -1496,8 +1623,12 @@ void button()
   Rightbutton = digitalRead(1);
   Leftbutton = digitalRead(3);
 }
+
 void all()
 {
+  spr.fillSprite(TFT_BLACK);
+  print(0, 0, "All Sensor", 3, TFT_CYAN, TFT_BLACK);
+  spr.drawLine(0, 30, 240, 30, TFT_CYAN);
   float Gangle, Bangle, Langle;
   gyrokeisan();
   ballkeisan();
@@ -1510,14 +1641,15 @@ void all()
   spr.drawLine(135, 135, 135 + 100 * cos((Langle + 90) * PI / 180), 135 + 100 * sin((Langle + 90) * PI / 180), TFT_GREEN);
 
   spr.drawCircle(135, 135, 100, TFT_WHITE);
-  spr.pushSprite(0,0);
+  spr.pushSprite(0, 0);
 }
+
 void setmode()
 {
   static int page = 0;
   static int mode = 0;
-  int maxpage[itemCount] = {2, 3, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2};
-  
+  int maxpage[itemCount] = {2, 3, 2, 3, 3, 3, 2, 2, 2, 2, 2, 2};
+
   button(); // 最新のボタン状態を取得
 
   if (page == 0)
@@ -1534,7 +1666,7 @@ void setmode()
       delay(50);
       currentIndex = (currentIndex + 1) % itemCount;
     }
-    
+
     // 下ボタン（ピン2）
     if (Downbutton == HIGH)
     {
@@ -1550,8 +1682,8 @@ void setmode()
 
     spr.fillSprite(TFT_BLACK);
 
-    print(20, 12, "Lorentz Menu", 2, TFT_CYAN, TFT_BLACK);
-    spr.drawFastHLine(0, 35, 240, TFT_CYAN); // 区切り線
+    print(0, 0, "Lorentz Menu", 3, TFT_CYAN, TFT_BLACK);
+    spr.drawFastHLine(0, 30, 240, TFT_CYAN); // 区切り線
 
     // --- スクロール位置（topIndex）の滑らかな追従管理 ---
     static int topIndex = 0;
@@ -1608,7 +1740,7 @@ void setmode()
       page++;
       mode = currentIndex; // 選択しているインデックスをそのままモード番号にする
     }
-    
+
     if (Leftbutton == HIGH)
     {
       delay(50);
@@ -1619,7 +1751,7 @@ void setmode()
       }
       delay(50);
 
-      mode = currentIndex; // 先にモードを更新
+      mode = currentIndex;      // 先にモードを更新
       page = maxpage[mode] - 1; // 0始まりのため、最大ページ - 1 をセットする
     }
   }
@@ -1652,17 +1784,46 @@ void setmode()
     else
     {
       // 各モードの実行（mode 番号で自動振り分け）
-      if (mode == 0) { all(); }
-      else if (mode == 1) { zikoichi(); }
-      else if (mode == 2) { gyro(); }
-      else if (mode == 3) { ball(); }
-      else if (mode == 4) { line(); }
-      else if (mode == 5) { Maincam(); }
-      else if (mode >= 6 && mode <= 11) { 
-        // 6〜11は同じ処理なのでまとめられます
-        drawBitmap(0, 0, epd_bitmap_image, 240, 240, getAutoRainbowColor()); 
+      if (mode == 0)
+      {
+        all();
       }
-      else if (mode == 7) { BLE(); } // ※上のまとめ条件と被る場合は適宜調整してください
+      else if (mode == 1)
+      {
+        zikoichi();
+      }
+      else if (mode == 2)
+      {
+        gyro();
+      }
+      else if (mode == 3)
+      {
+        ball();
+      }
+      else if (mode == 4)
+      {
+        line();
+      }
+      else if (mode == 5)
+      {
+        Maincam();
+      }
+      else if (mode == 6)
+      {
+        drawBitmap(0, 0, epd_bitmap_image, 240, 240, getAutoRainbowColor());
+      }
+      else if (mode == 7)
+      {
+        BLE();
+      }
+      else if (mode == 8)
+      {
+        Encoder();
+      }
+      else
+      {
+        drawBitmap(0, 0, epd_bitmap_image, 240, 240, getAutoRainbowColor());
+      }
     }
   }
   else if (page == 2)
@@ -1693,12 +1854,27 @@ void setmode()
     }
     else
     {
-      if (mode == 1) { zikoichidebug(); }
-      else if (mode == 4) { linedebug(); }
+      if (mode == 1)
+      {
+        zikoichidebug();
+      }
+      else if (mode == 3)
+      {
+        balldebug();
+      }
+      else if (mode == 4)
+      {
+        linedebug();
+      }
+      else if (mode == 5)
+      {
+        Maincamdebug();
+      }
     }
   }
   spr.pushSprite(0, 0);
 }
+
 void setup()
 {
   Serial.begin(115200);
