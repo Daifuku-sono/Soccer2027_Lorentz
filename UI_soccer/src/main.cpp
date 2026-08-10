@@ -888,7 +888,7 @@ struct SensorGroup
 
 // センサ情報
 int lineA = 5;
-int j[36] = {1, 2, 10, 11, 22};
+int j[36] = {1, 2, 13, 14, 22};
 int R = 100;
 int targetA = 0;
 
