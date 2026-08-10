@@ -1538,9 +1538,8 @@ float endX, endY, bluegoal, yellowgoal;
 void zikoichikeisan()
 {
   gyrokeisan();
-
-  yellowgoal = normalizeAngle(gyroangle + 10.0);
-  bluegoal = normalizeAngle(gyroangle + 180.0);
+  yellowgoal = normalizeAngle(gyroangle + 5.0);
+  bluegoal = normalizeAngle(gyroangle + 175.0);
 
   float radB = bluegoal * PI / 180.0;
   float radY = yellowgoal * PI / 180.0;
