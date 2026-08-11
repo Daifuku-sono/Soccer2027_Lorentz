@@ -885,139 +885,222 @@ struct SensorGroup
   int endIdx;
   int count;
 };
-
-// センサ情報
 int lineA = 5;
+
 int j[36] = {1, 2, 13, 14, 22};
+
 int R = 100;
+
 int targetA = 0;
 
 // 計算結果出力用
+
 int lineRealcount = 0;
+
 int Lbegin[3] = {0};
+
 int Lend[3] = {0};
+
 float lineangle; // 進む方向
+
 // 計算途中で保持するグループ情報
+
 SensorGroup validLines[10];
+
 int validLinesCount = 0;
+
 SensorGroup invalidGroups[36];
+
 int invalidGroupsCount = 0;
 
 int threshold = 0;
 
 void linekeisan()
+
 {
+
   // 初期化
+
   lineRealcount = 0;
+
   validLinesCount = 0;
+
   invalidGroupsCount = 0;
 
   SensorGroup groups[36];
+
   int groupCount = 0;
 
   // グループ分け
+
   if (lineA > 0)
+
   {
+
     groups[0].count = 1;
+
     groups[0].startIdx = j[0];
+
     groups[0].endIdx = j[0];
+
     groupCount = 1;
 
     for (int a = 1; a < lineA; a++)
+
     {
+
       int diff = j[a] - j[a - 1];
 
       if (diff <= 3)
+
       {
+
         int g = groupCount - 1;
+
         groups[g].count++;
+
         groups[g].endIdx = j[a];
       }
+
       else
+
       {
+
         int g = groupCount;
+
         groups[g].count = 1;
+
         groups[g].startIdx = j[a];
+
         groups[g].endIdx = j[a];
+
         groupCount++;
       }
     }
   }
 
   // 有効ラインと無効グループわけるお
+
   for (int g = 0; g < groupCount; g++)
+
   {
+
     if (groups[g].count >= 3)
+
     {
+
       validLines[validLinesCount++] = groups[g];
     }
+
     else
+
     {
+
       invalidGroups[invalidGroupsCount++] = groups[g];
     }
   }
 
   // グループ2つ
+
   if (validLinesCount == 2)
+
   {
+
     validLines[0].endIdx = validLines[1].endIdx;
+
     validLines[0].count += validLines[1].count;
+
     validLinesCount = 1;
   }
+
   else if (validLinesCount == 0 && invalidGroupsCount == 2)
+
   {
+
     validLines[0].startIdx = invalidGroups[0].startIdx;
+
     validLines[0].endIdx = invalidGroups[1].endIdx;
+
     validLines[0].count = invalidGroups[0].count + invalidGroups[1].count;
+
     validLinesCount = 1;
+
     invalidGroupsCount = 0;
   }
 
   // 有効ライン情報の格納
+
   for (int v = 0; v < validLinesCount && lineRealcount < 3; v++)
+
   {
+
     Lbegin[lineRealcount] = validLines[v].startIdx;
+
     Lend[lineRealcount] = validLines[v].endIdx;
+
     lineRealcount++;
   }
 
   struct DrawnLine
+
   {
+
     float ax, ay, bx, by;
   };
+
   DrawnLine drawnValidLines[10];
 
   for (int v = 0; v < validLinesCount; v++)
+
   {
+
     float valCenterIdx = (validLines[v].startIdx + validLines[v].endIdx) / 2.0;
+
     float cx = 135 + 90 * cos((valCenterIdx * 10 + 90) * PI / 180);
+
     float cy = 135 + 90 * sin((valCenterIdx * 10 + 90) * PI / 180);
 
     if (v == 0)
+
     {
+
       float rawAx = 135 + R * cos((validLines[v].startIdx * 10 + 90) * PI / 180);
+
       float rawAy = 135 + R * sin((validLines[v].startIdx * 10 + 90) * PI / 180);
+
       float rawBx = 135 + R * cos(((validLines[v].endIdx + 1) * 10 + 90) * PI / 180);
+
       float rawBy = 135 + R * sin(((validLines[v].endIdx + 1) * 10 + 90) * PI / 180);
 
       drawnValidLines[v] = {rawAx, rawAy, rawBx, rawBy};
     }
+
     else
+
     {
+
       float rawAx = 135 + R * cos((validLines[0].startIdx * 10 + 90) * PI / 180);
+
       float rawAy = 135 + R * sin((validLines[0].startIdx * 10 + 90) * PI / 180);
+
       float rawBx = 135 + R * cos(((validLines[0].endIdx + 1) * 10 + 90) * PI / 180);
+
       float rawBy = 135 + R * sin(((validLines[0].endIdx + 1) * 10 + 90) * PI / 180);
 
       float baseVx = rawBx - rawAx;
+
       float baseVy = rawBy - rawAy;
 
       float finalVx = -baseVy;
+
       float finalVy = baseVx;
 
       float p1x = cx - finalVx;
+
       float p1y = cy - finalVy;
+
       float p2x = cx + finalVx;
+
       float p2y = cy + finalVy;
 
       drawnValidLines[v] = {p1x, p1y, p2x, p2y};
@@ -1025,303 +1108,489 @@ void linekeisan()
   }
 
   if (validLinesCount > 0 && invalidGroupsCount >= 2)
+
   {
+
     float minPairDist = 999999.0;
+
     int bestA = 0, bestB = 1;
 
     float midX[36], midY[36];
+
     for (int i = 0; i < invalidGroupsCount; i++)
+
     {
+
       float cx = 135 + R * cos((invalidGroups[i].startIdx * 10 + 90) * PI / 180);
+
       float cy = 135 + R * sin((invalidGroups[i].startIdx * 10 + 90) * PI / 180);
+
       float dx = 135 + R * cos(((invalidGroups[i].endIdx + 1) * 10 + 90) * PI / 180);
+
       float dy = 135 + R * sin(((invalidGroups[i].endIdx + 1) * 10 + 90) * PI / 180);
+
       midX[i] = (cx + dx) / 2.0;
+
       midY[i] = (cy + dy) / 2.0;
     }
 
     for (int i = 0; i < invalidGroupsCount; i++)
+
     {
+
       for (int k = i + 1; k < invalidGroupsCount; k++)
+
       {
+
         float d = (midX[i] - midX[k]) * (midX[i] - midX[k]) + (midY[i] - midY[k]) * (midY[i] - midY[k]);
+
         if (d < minPairDist)
+
         {
+
           minPairDist = d;
+
           bestA = i;
+
           bestB = k;
         }
       }
     }
 
     if (lineRealcount < 3)
+
     {
+
       Lbegin[lineRealcount] = invalidGroups[bestA].startIdx;
+
       Lend[lineRealcount] = invalidGroups[bestB].endIdx;
+
       lineRealcount++;
     }
   }
+
   else if (validLinesCount > 0 && invalidGroupsCount == 1)
+
   {
+
     for (int i = 0; i < invalidGroupsCount; i++)
+
     {
+
       float cx = 135 + R * cos((invalidGroups[i].startIdx * 10 + 90) * PI / 180);
+
       float cy = 135 + R * sin((invalidGroups[i].startIdx * 10 + 90) * PI / 180);
+
       float midInvX = cx;
+
       float midInvY = cy;
 
       float minDistSq = 999999.0;
+
       bool foundValidPair = false;
 
       for (int v = 0; v < validLinesCount; v++)
+
       {
+
         float ax = drawnValidLines[v].ax;
+
         float ay = drawnValidLines[v].ay;
+
         float bx = drawnValidLines[v].bx;
+
         float by = drawnValidLines[v].by;
 
         float lineVx = bx - ax;
+
         float lineVy = by - ay;
+
         float px = midInvX - ax;
+
         float py = midInvY - ay;
 
         float lenSq = lineVx * lineVx + lineVy * lineVy;
+
         float t = 0;
+
         if (lenSq > 0.0001)
+
         {
+
           t = (px * lineVx + py * lineVy) / lenSq;
         }
 
         float footX = ax + t * lineVx;
+
         float footY = ay + t * lineVy;
 
         float distSq = (midInvX - footX) * (midInvX - footX) + (midInvY - footY) * (midInvY - footY);
+
         if (distSq < minDistSq)
+
         {
+
           minDistSq = distSq;
+
           foundValidPair = true;
         }
       }
 
       if (foundValidPair)
+
       {
+
         if (lineRealcount < 3)
+
         {
+
           Lbegin[lineRealcount] = invalidGroups[i].startIdx;
+
           Lend[lineRealcount] = invalidGroups[i].endIdx;
+
           lineRealcount++;
         }
       }
     }
   }
+
   else if (validLinesCount == 0 && invalidGroupsCount == 2)
+
   {
+
     if (lineRealcount < 3)
+
     {
+
       Lbegin[lineRealcount] = invalidGroups[0].startIdx;
+
       Lend[lineRealcount] = invalidGroups[1].endIdx;
+
       lineRealcount++;
     }
   }
+
   else if (validLinesCount == 0 && invalidGroupsCount == 3)
+
   {
+
     int bestPerpIdx = 0;
+
     int minAngleDiff = 999;
 
     for (int i = 0; i < 3; i++)
+
     {
+
       int diff = abs(invalidGroups[i].startIdx - targetA);
+
       if (diff > 18)
+
         diff = 36 - diff;
 
       if (diff < minAngleDiff)
+
       {
+
         minAngleDiff = diff;
+
         bestPerpIdx = i;
       }
     }
 
     int lineIdx1 = (bestPerpIdx + 1) % 3;
+
     int lineIdx2 = (bestPerpIdx + 2) % 3;
 
     if (lineRealcount < 3)
+
     {
+
       Lbegin[lineRealcount] = invalidGroups[lineIdx1].startIdx;
+
       Lend[lineRealcount] = invalidGroups[lineIdx2].endIdx;
+
       lineRealcount++;
     }
   }
+
   else if (validLinesCount == 0 && invalidGroupsCount == 4)
+
   {
+
     if (lineRealcount < 3)
+
     {
+
       Lbegin[lineRealcount] = invalidGroups[0].startIdx;
+
       Lend[lineRealcount] = invalidGroups[2].endIdx;
+
       lineRealcount++;
     }
+
     if (lineRealcount < 3)
+
     {
+
       Lbegin[lineRealcount] = invalidGroups[1].startIdx;
+
       Lend[lineRealcount] = invalidGroups[3].endIdx;
+
       lineRealcount++;
     }
   }
 }
 
 void line()
+
 {
+
   // 計算
+
   linekeisan();
 
   // 正方形エリア
+
   auto drawExtendedLine = [&](float ax, float ay, float bx, float by, int thickness, uint32_t color)
+
   {
     float minVal = 35.0;
+
     float maxVal = 235.0;
+
     float dx = bx - ax;
+
     float dy = by - ay;
 
     if (abs(dx) < 0.0001 && abs(dy) < 0.0001)
+
       return;
 
     float t[4];
+
     int count = 0;
+
     float tol = 0.1;
 
     if (abs(dx) > 0.0001)
+
     {
+
       float t1 = (minVal - ax) / dx;
+
       float y1 = ay + t1 * dy;
+
       if (y1 >= minVal - tol && y1 <= maxVal + tol)
+
         t[count++] = t1;
 
       float t2 = (maxVal - ax) / dx;
+
       float y2 = ay + t2 * dy;
+
       if (y2 >= minVal - tol && y2 <= maxVal + tol)
+
         t[count++] = t2;
     }
+
     if (abs(dy) > 0.0001)
+
     {
+
       float t3 = (minVal - ay) / dy;
+
       float x3 = ax + t3 * dx;
+
       if (x3 > minVal + tol && x3 < maxVal - tol)
+
         t[count++] = t3;
 
       float t4 = (maxVal - ay) / dy;
+
       float x4 = ax + t4 * dx;
+
       if (x4 > minVal + tol && x4 < maxVal - tol)
+
         t[count++] = t4;
     }
 
     if (count >= 2)
+
     {
+
       float ex1 = ax + t[0] * dx;
+
       float ey1 = ay + t[0] * dy;
+
       float ex2 = ax + t[1] * dx;
+
       float ey2 = ay + t[1] * dy;
+
       spr.drawWideLine(ex1, ey1, ex2, ey2, thickness, color, color);
     }
+
     else
+
     {
+
       spr.drawWideLine(ax, ay, bx, by, thickness, color, color);
     }
   };
 
   spr.fillSprite(TFT_BLACK);
+
   spr.drawCircle(135, 135, R, TFT_WHITE);
+
   print(0, 0, "Line", 3, TFT_CYAN, TFT_BLACK);
+
   spr.drawLine(0, 30, 240, 30, TFT_CYAN);
+
   for (int i = 0; i < 36; i++)
+
   {
+
     spr.drawLine(135, 135, 135 + R * cos((i * 10 + 90) * PI / 180), 135 + R * sin((i * 10 + 90) * PI / 180), TFT_WHITE);
   }
 
   // 全センサの反応（オレンジの円弧）
+
   for (int a = 0; a < lineA; a++)
+
   {
+
     int i = j[a];
+
     spr.drawArc(135, 135, R - 1, R - 19, i * 10, i * 10 + 10, TFT_ORANGE, TFT_ORANGE, false);
   }
 
   spr.drawLine(135, 135, 135 + R * cos(90 * PI / 180), 135 + R * sin(90 * PI / 180), TFT_WHITE);
+
   spr.drawCircle(135, 135, 80, TFT_WHITE);
+
   spr.fillCircle(135, 135, 79, TFT_BLACK);
 
   struct DrawnLine
+
   {
+
     float ax, ay, bx, by;
   };
+
   DrawnLine drawnValidLines[10];
 
   for (int v = 0; v < validLinesCount; v++)
+
   {
+
     float valCenterIdx = (validLines[v].startIdx + validLines[v].endIdx) / 2.0;
+
     float cx = 135 + 90 * cos((valCenterIdx * 10 + 90) * PI / 180);
+
     float cy = 135 + 90 * sin((valCenterIdx * 10 + 90) * PI / 180);
 
     float baseVx = 0, baseVy = 0;
 
     if (v == 0)
+
     {
+
       float rawAx = 135 + R * cos((validLines[v].startIdx * 10 + 90) * PI / 180);
+
       float rawAy = 135 + R * sin((validLines[v].startIdx * 10 + 90) * PI / 180);
+
       float rawBx = 135 + R * cos(((validLines[v].endIdx + 1) * 10 + 90) * PI / 180);
+
       float rawBy = 135 + R * sin(((validLines[v].endIdx + 1) * 10 + 90) * PI / 180);
 
       baseVx = rawBx - rawAx;
+
       baseVy = rawBy - rawAy;
 
       drawnValidLines[v] = {rawAx, rawAy, rawBx, rawBy};
+
       drawExtendedLine(rawAx, rawAy, rawBx, rawBy, 3, TFT_WHITE);
     }
+
     else
+
     {
+
       float rawAx = 135 + R * cos((validLines[0].startIdx * 10 + 90) * PI / 180);
+
       float rawAy = 135 + R * sin((validLines[0].startIdx * 10 + 90) * PI / 180);
+
       float rawBx = 135 + R * cos(((validLines[0].endIdx + 1) * 10 + 90) * PI / 180);
+
       float rawBy = 135 + R * sin(((validLines[0].endIdx + 1) * 10 + 90) * PI / 180);
 
       baseVx = rawBx - rawAx;
+
       baseVy = rawBy - rawAy;
 
       float finalVx = -baseVy;
+
       float finalVy = baseVx;
 
       float p1x = cx - finalVx;
+
       float p1y = cy - finalVy;
+
       float p2x = cx + finalVx;
+
       float p2y = cy + finalVy;
 
       drawnValidLines[v] = {p1x, p1y, p2x, p2y};
+
       drawExtendedLine(p1x, p1y, p2x, p2y, 3, TFT_WHITE);
     }
   }
 
   if (validLinesCount > 0 && invalidGroupsCount >= 2)
+
   {
+
     float minPairDist = 999999.0;
+
     int bestA = 0, bestB = 1;
 
     float midX[36], midY[36];
+
     for (int i = 0; i < invalidGroupsCount; i++)
+
     {
+
       float cx = 135 + R * cos((invalidGroups[i].startIdx * 10 + 90) * PI / 180);
+
       float cy = 135 + R * sin((invalidGroups[i].startIdx * 10 + 90) * PI / 180);
+
       float dx = 135 + R * cos(((invalidGroups[i].endIdx + 1) * 10 + 90) * PI / 180);
+
       float dy = 135 + R * sin(((invalidGroups[i].endIdx + 1) * 10 + 90) * PI / 180);
+
       midX[i] = (cx + dx) / 2.0;
+
       midY[i] = (cy + dy) / 2.0;
     }
 
     for (int i = 0; i < invalidGroupsCount; i++)
+
     {
+
       for (int k = i + 1; k < invalidGroupsCount; k++)
+
       {
+
         float d = (midX[i] - midX[k]) * (midX[i] - midX[k]) + (midY[i] - midY[k]) * (midY[i] - midY[k]);
+
         if (d < minPairDist)
+
         {
+
           minPairDist = d;
+
           bestA = i;
+
           bestB = k;
         }
       }
@@ -1330,166 +1599,267 @@ void line()
     drawExtendedLine(midX[bestA], midY[bestA], midX[bestB], midY[bestB], 2, TFT_WHITE);
 
     float baseVx = midX[bestB] - midX[bestA];
+
     float baseVy = midY[bestB] - midY[bestA];
 
     for (int i = 0; i < invalidGroupsCount; i++)
+
     {
+
       if (i != bestA && i != bestB)
+
       {
+
         float px = midX[i] - midX[bestA];
+
         float py = midY[i] - midY[bestA];
+
         float lenSq = baseVx * baseVx + baseVy * baseVy;
+
         float t = 0;
+
         if (lenSq > 0.0001)
+
         {
+
           t = (px * baseVx + py * baseVy) / lenSq;
         }
+
         float footX = midX[bestA] + t * baseVx;
+
         float footY = midY[bestA] + t * baseVy;
 
         drawExtendedLine(midX[i], midY[i], footX, footY, 2, TFT_WHITE);
       }
     }
   }
+
   else if (validLinesCount > 0 && invalidGroupsCount == 1)
+
   {
+
     for (int i = 0; i < invalidGroupsCount; i++)
+
     {
+
       float cx = 135 + R * cos((invalidGroups[i].startIdx * 10 + 90) * PI / 180);
+
       float cy = 135 + R * sin((invalidGroups[i].startIdx * 10 + 90) * PI / 180);
+
       float midInvX = cx;
+
       float midInvY = cy;
 
       float minDistSq = 999999.0;
+
       float bestFootX = 135;
+
       float bestFootY = 135;
+
       bool foundValidPair = false;
 
       for (int v = 0; v < validLinesCount; v++)
+
       {
+
         float ax = drawnValidLines[v].ax;
+
         float ay = drawnValidLines[v].ay;
+
         float bx = drawnValidLines[v].bx;
+
         float by = drawnValidLines[v].by;
 
         float lineVx = bx - ax;
+
         float lineVy = by - ay;
+
         float px = midInvX - ax;
+
         float py = midInvY - ay;
 
         float lenSq = lineVx * lineVx + lineVy * lineVy;
+
         float t = 0;
+
         if (lenSq > 0.0001)
+
         {
+
           t = (px * lineVx + py * lineVy) / lenSq;
         }
 
         float footX = ax + t * lineVx;
+
         float footY = ay + t * lineVy;
 
         float distSq = (midInvX - footX) * (midInvX - footX) + (midInvY - footY) * (midInvY - footY);
+
         if (distSq < minDistSq)
+
         {
+
           minDistSq = distSq;
+
           bestFootX = footX;
+
           bestFootY = footY;
+
           foundValidPair = true;
         }
       }
 
       if (foundValidPair)
+
       {
+
         drawExtendedLine(midInvX, midInvY, bestFootX, bestFootY, 2, TFT_WHITE);
       }
     }
   }
+
   else if (validLinesCount == 0 && invalidGroupsCount == 2)
+
   {
+
     float midX[2], midY[2];
+
     for (int i = 0; i < 2; i++)
+
     {
+
       float cx = 135 + R * cos((invalidGroups[i].startIdx * 10 + 90) * PI / 180);
+
       float cy = 135 + R * sin((invalidGroups[i].startIdx * 10 + 90) * PI / 180);
+
       float dx = 135 + R * cos(((invalidGroups[i].endIdx + 1) * 10 + 90) * PI / 180);
+
       float dy = 135 + R * sin(((invalidGroups[i].endIdx + 1) * 10 + 90) * PI / 180);
+
       midX[i] = (cx + dx) / 2.0;
+
       midY[i] = (cy + dy) / 2.0;
     }
 
     drawExtendedLine(midX[0], midY[0], midX[1], midY[1], 2, TFT_WHITE);
   }
+
   else if (validLinesCount == 0 && invalidGroupsCount == 3)
+
   {
+
     int bestPerpIdx = 0;
+
     int minAngleDiff = 999;
 
     for (int i = 0; i < 3; i++)
+
     {
+
       int diff = abs(invalidGroups[i].startIdx - targetA);
+
       if (diff > 18)
+
         diff = 36 - diff;
 
       if (diff < minAngleDiff)
+
       {
+
         minAngleDiff = diff;
+
         bestPerpIdx = i;
       }
     }
 
     int lineIdx1 = (bestPerpIdx + 1) % 3;
+
     int lineIdx2 = (bestPerpIdx + 2) % 3;
 
     float midX[3], midY[3];
+
     for (int i = 0; i < 3; i++)
+
     {
+
       float cx = 135 + R * cos((invalidGroups[i].startIdx * 10 + 90) * PI / 180);
+
       float cy = 135 + R * sin((invalidGroups[i].startIdx * 10 + 90) * PI / 180);
+
       float dx = 135 + R * cos(((invalidGroups[i].endIdx + 1) * 10 + 90) * PI / 180);
+
       float dy = 135 + R * sin(((invalidGroups[i].endIdx + 1) * 10 + 90) * PI / 180);
+
       midX[i] = (cx + dx) / 2.0;
+
       midY[i] = (cy + dy) / 2.0;
     }
 
     drawExtendedLine(midX[lineIdx1], midY[lineIdx1], midX[lineIdx2], midY[lineIdx2], 2, TFT_WHITE);
 
     float ax = midX[lineIdx1];
+
     float ay = midY[lineIdx1];
+
     float bx = midX[lineIdx2];
+
     float by = midY[lineIdx2];
+
     float px = midX[bestPerpIdx];
+
     float py = midY[bestPerpIdx];
 
     float lineVx = bx - ax;
+
     float lineVy = by - ay;
+
     float vecPx = px - ax;
+
     float vecPy = py - ay;
 
     float lenSq = lineVx * lineVx + lineVy * lineVy;
+
     float t = 0;
+
     if (lenSq > 0.0001)
+
     {
+
       t = (vecPx * lineVx + vecPy * lineVy) / lenSq;
     }
 
     float footX = ax + t * lineVx;
+
     float footY = ay + t * lineVy;
 
     drawExtendedLine(px, py, footX, footY, 2, TFT_WHITE);
   }
+
   else if (validLinesCount == 0 && invalidGroupsCount == 4)
+
   {
+
     float midX[4], midY[4];
+
     for (int i = 0; i < 4; i++)
+
     {
+
       float cx = 135 + R * cos((invalidGroups[i].startIdx * 10 + 90) * PI / 180);
+
       float cy = 135 + R * sin((invalidGroups[i].startIdx * 10 + 90) * PI / 180);
+
       float dx = 135 + R * cos(((invalidGroups[i].endIdx + 1) * 10 + 90) * PI / 180);
+
       float dy = 135 + R * sin(((invalidGroups[i].endIdx + 1) * 10 + 90) * PI / 180);
+
       midX[i] = (cx + dx) / 2.0;
+
       midY[i] = (cy + dy) / 2.0;
     }
 
     drawExtendedLine(midX[0], midY[0], midX[2], midY[2], 2, TFT_WHITE);
+
     drawExtendedLine(midX[1], midY[1], midX[3], midY[3], 2, TFT_WHITE);
   }
 
@@ -1497,41 +1867,66 @@ void line()
 }
 
 void linedebug()
+
 {
+
   // 計算
+
   linekeisan();
+
   spr.fillSprite(TFT_BLACK);
 
   print(0, 0, "Line Debug", 3, TFT_CYAN, TFT_BLACK);
+
   spr.drawLine(0, 30, 240, 30, TFT_CYAN);
+
   spr.setTextSize(2);
+
   spr.setTextColor(TFT_WHITE, TFT_BLACK);
+
   spr.setCursor(10, 50);
+
   spr.print("Active Sensors:");
 
   spr.setCursor(10, 75);
+
   for (int a = 0; a < lineA; a++)
+
   {
+
     spr.print(j[a]);
+
     spr.print(" ");
   }
+
   spr.drawLine(0, 100, 240, 100, TFT_CYAN);
+
   spr.setTextSize(3);
+
   for (int i = 0; i < lineRealcount; i++)
+
   {
+
     spr.setCursor(10, 110 + i * 35);
+
     spr.print(Lbegin[i]);
+
     spr.print("~");
+
     spr.print(Lend[i]);
   }
 
   spr.setCursor(10, 110 + lineRealcount * 35);
+
   spr.print("Count:");
+
   spr.print(lineRealcount);
 
   // しきいち
+
   spr.pushSprite(0, 0);
 }
+
 float calcX, calcY;
 float endX, endY, bluegoal, yellowgoal;
 
