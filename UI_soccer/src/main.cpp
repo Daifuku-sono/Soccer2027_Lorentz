@@ -615,7 +615,7 @@ void Encoder()
 
   int neg_dir_angles[] = {45, 135, 45, 135};
 
-  int arrow_length[] = {105, 105, 105, 105};
+  int arrow_length[] = {-105, -105, -105, -105};
 
   for (int i = 0; i < 4; i++)
   {
@@ -660,8 +660,8 @@ void Encoder()
   float allarrow_deg = atan(allarrow_y / allarrow_x);
   if (allarrow_x == 0 && allarrow_y > 0)
     allarrow_deg = 0;
-  if (allarrow_x == 0 && allarrow_y <0)
-    allarrow_deg = 180;
+  if (allarrow_x == 0 && allarrow_y < 0)
+    allarrow_deg = -PI;
   drawyazirushi(135, 135, 135 + allarrow_x, 135 - allarrow_y);
   spr.setCursor(135, 127);
   spr.print(allarrow_deg * 180 / PI);
@@ -1052,7 +1052,7 @@ SensorGroup invalidGroups[36];
 
 int invalidGroupsCount = 0;
 
-int threshold = 0;
+int line_threshold = 255;
 
 void linekeisan()
 
@@ -2253,7 +2253,43 @@ void button()
   Rightbutton = digitalRead(1);
   Leftbutton = digitalRead(3);
 }
+void shikiichi()
+{
+  // 1. 最新のボタン状態を取得する（これがないと値が変わりません）
+  button(); 
 
+  // 2. 上ボタンで値を増やす（押しっぱなしで連続して増えます）
+  if (Upbutton == HIGH && line_threshold < 255)
+  {
+    line_threshold++;
+    delay(50); // 数字が変わるスピード。早すぎる場合は 100 などに増やしてください
+  }
+  
+  // 3. 下ボタンで値を減らす
+  if (Downbutton == HIGH && line_threshold > 0)
+  {
+    line_threshold--;
+    delay(50); // 数字が変わるスピード。
+  }
+
+  // 4. 描画処理
+  spr.fillSprite(TFT_BLACK); // fillScreen ではなくスプライトのクリアを使う
+  print(0, 0, "threshold", 3, TFT_CYAN, TFT_BLACK);
+  spr.drawLine(0, 30, 240, 30, TFT_CYAN);
+  
+  spr.setTextSize(5);
+  // 数字が画面の中央付近にくるように座標を少し調整しています
+  spr.setCursor(60, 110); 
+  
+  // 文字色と背景色を両方指定して、前の文字の残像が残るのを防ぎます
+  spr.setTextColor(TFT_CYAN, TFT_BLACK); 
+  
+  spr.print(line_threshold);
+  spr.print("A");
+  
+  // setmode() 側でも呼ばれていますが、念のためここでもスプライトをプッシュしておきます
+  spr.pushSprite(0, 0); 
+}
 void all()
 {
   spr.fillSprite(TFT_BLACK);
@@ -2278,7 +2314,7 @@ void setmode()
 {
   static int page = 0;
   static int mode = 0;
-  int maxpage[itemCount] = {2, 3, 2, 3, 3, 3, 3, 2, 2, 2, 2, 2};
+  int maxpage[itemCount] = {2, 3, 2, 3, 3, 3, 3, 2, 2, 2, 3, 2};
 
   button(); // 最新のボタン状態を取得
 
@@ -2454,6 +2490,10 @@ void setmode()
       {
         BallCheck();
       }
+      else if (mode == 10)
+      {
+        shikiichi();
+      }
       else
       {
         drawBitmap(0, 0, epd_bitmap_image, 240, 240, getAutoRainbowColor());
@@ -2516,6 +2556,11 @@ void setmode()
 void setup()
 {
   Serial.begin(115200);
+  pinMode(0, INPUT_PULLDOWN);
+  pinMode(1, INPUT_PULLDOWN);
+  pinMode(2, INPUT_PULLDOWN);
+  pinMode(3, INPUT_PULLDOWN);
+
   // 液晶の初期化
   tft.init();
   tft.setRotation(4);
